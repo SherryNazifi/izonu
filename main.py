@@ -5,6 +5,8 @@ import alpaca_trade_api as tradeapi
 import os
 import math
 import statistics
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 load_dotenv()
 
@@ -109,11 +111,42 @@ def get_sharpe(days: int = 30):
     }
 
 
+def _send_alert_email(live_sharpe: float, backtest_sharpe: float, pct_below: float, threshold: float):
+    """Send a SendGrid alert email when strategy drift is detected."""
+    sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
+    sender = os.getenv("SENDER_EMAIL")
+    recipient = os.getenv("ALERT_EMAIL")
+
+    body = f"""
+Izonu has detected strategy drift in your live trading account.
+
+Live Sharpe Ratio:     {live_sharpe}
+Backtest Sharpe Ratio: {backtest_sharpe}
+Drop:                  {pct_below}% below backtest
+Threshold:             {int(threshold * 100)}%
+
+Your live Sharpe has fallen more than {int(threshold * 100)}% below your backtest Sharpe.
+This may indicate the strategy is no longer performing as expected.
+
+— Izonu Monitor
+    """.strip()
+
+    message = Mail(
+        from_email=sender,
+        to_emails=recipient,
+        subject="Izonu Alert: Strategy Drift Detected",
+        plain_text_content=body,
+    )
+
+    sg.send(message)
+
+
 @app.get("/monitor")
 def monitor(backtest_sharpe: float, days: int = 30, threshold: float = 0.3):
     """
     Compare live Sharpe to backtest Sharpe.
     Triggers an alert if live Sharpe has dropped more than threshold% below backtest.
+    Sends a SendGrid email when an alert is triggered.
     """
 
     # Calculate live Sharpe — reuse the same helper as /sharpe
@@ -144,6 +177,15 @@ def monitor(backtest_sharpe: float, days: int = 30, threshold: float = 0.3):
     # How far below the backtest the live Sharpe is, as a percentage
     pct_below = round((backtest_sharpe - live_sharpe) / backtest_sharpe * 100, 2)
 
+    # Send email if alert triggered
+    email_status = None
+    if alert:
+        try:
+            _send_alert_email(live_sharpe, backtest_sharpe, pct_below, threshold)
+            email_status = f"Alert email sent to {os.getenv('ALERT_EMAIL')}"
+        except Exception as e:
+            email_status = f"Email failed to send: {str(e)}"
+
     return {
         "alert": alert,
         "message": (
@@ -158,6 +200,37 @@ def monitor(backtest_sharpe: float, days: int = 30, threshold: float = 0.3):
         "pct_below_backtest": pct_below,
         "threshold_pct": int(threshold * 100),
         "trading_days_analyzed": trading_days,
+        "email_status": email_status,
+    }
+
+
+@app.get("/monitor/test")
+def monitor_test():
+    """Trigger a fake alert to test the SendGrid email integration."""
+
+    # Hardcoded values that will always trigger an alert
+    backtest_sharpe = 1.84
+    live_sharpe = 0.5
+    threshold = 0.4
+
+    minimum_acceptable = backtest_sharpe * (1 - threshold)
+    pct_below = round((backtest_sharpe - live_sharpe) / backtest_sharpe * 100, 2)
+
+    try:
+        _send_alert_email(live_sharpe, backtest_sharpe, pct_below, threshold)
+        email_status = f"Alert email sent to {os.getenv('ALERT_EMAIL')}"
+    except Exception as e:
+        email_status = f"Email failed to send: {str(e)}"
+
+    return {
+        "note": "This is a fake alert to test the email integration",
+        "alert": True,
+        "backtest_sharpe": backtest_sharpe,
+        "live_sharpe": live_sharpe,
+        "minimum_acceptable_sharpe": round(minimum_acceptable, 4),
+        "pct_below_backtest": pct_below,
+        "threshold_pct": int(threshold * 100),
+        "email_status": email_status,
     }
 
 
