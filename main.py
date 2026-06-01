@@ -7,6 +7,8 @@ import math
 import statistics
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 load_dotenv()
 
@@ -17,6 +19,46 @@ api = tradeapi.REST(
     secret_key=os.getenv("ALPACA_SECRET_KEY"),
     base_url=os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets"),
 )
+
+
+def _scheduled_monitor():
+    """
+    Runs every day at 9 AM automatically.
+    Reads config from .env, checks for strategy drift, and emails if alert triggers.
+    """
+    backtest_sharpe = float(os.getenv("BACKTEST_SHARPE", "1.0"))
+    days = int(os.getenv("ALERT_DAYS", "30"))
+    threshold = float(os.getenv("ALERT_THRESHOLD", "0.3"))
+
+    try:
+        live_sharpe, _ = _compute_live_sharpe(days)
+    except ValueError:
+        # Not enough data or no variance — skip silently until more data is available
+        return
+
+    minimum_acceptable = backtest_sharpe * (1 - threshold)
+    alert = live_sharpe < minimum_acceptable
+
+    if alert:
+        pct_below = round((backtest_sharpe - live_sharpe) / backtest_sharpe * 100, 2)
+        _send_alert_email(live_sharpe, backtest_sharpe, pct_below, threshold)
+
+
+# Create the scheduler but don't start it yet — startup event handles that
+scheduler = BackgroundScheduler()
+scheduler.add_job(_scheduled_monitor, CronTrigger(hour=9, minute=0, timezone=os.getenv("TIMEZONE", "UTC")))
+
+
+@app.on_event("startup")
+def start_scheduler():
+    """Start the background scheduler when the app starts."""
+    scheduler.start()
+
+
+@app.on_event("shutdown")
+def stop_scheduler():
+    """Stop the background scheduler cleanly when the app stops."""
+    scheduler.shutdown()
 
 
 @app.get("/")
