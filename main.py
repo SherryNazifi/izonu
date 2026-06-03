@@ -9,6 +9,8 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from database import engine, Base
+import models
 
 load_dotenv()
 
@@ -53,6 +55,8 @@ scheduler.add_job(_scheduled_monitor, CronTrigger(hour=9, minute=0, timezone=os.
 def start_scheduler():
     """Start the background scheduler when the app starts."""
     scheduler.start()
+    # Create all tables in the database if they don't exist yet
+    Base.metadata.create_all(bind=engine)
 
 
 @app.on_event("shutdown")
