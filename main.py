@@ -1,5 +1,6 @@
 from typing import Dict
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
+from pydantic import BaseModel
 from dotenv import load_dotenv
 import alpaca_trade_api as tradeapi
 import os
@@ -9,7 +10,8 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from database import engine, Base
+from sqlalchemy.orm import Session
+from database import engine, Base, get_db, SessionLocal
 import models
 
 load_dotenv()
@@ -26,24 +28,34 @@ api = tradeapi.REST(
 def _scheduled_monitor():
     """
     Runs every day at 9 AM automatically.
-    Reads config from .env, checks for strategy drift, and emails if alert triggers.
+    Loops through every user in the database, checks for strategy drift
+    using their own Alpaca credentials and settings, and emails them if alert triggers.
     """
-    backtest_sharpe = float(os.getenv("BACKTEST_SHARPE", "1.0"))
-    days = int(os.getenv("ALERT_DAYS", "30"))
-    threshold = float(os.getenv("ALERT_THRESHOLD", "0.3"))
-
+    db = SessionLocal()
     try:
-        live_sharpe, _ = _compute_live_sharpe(days)
-    except ValueError:
-        # Not enough data or no variance — skip silently until more data is available
-        return
+        users = db.query(models.User).all()
+        for user in users:
+            # Create a per-user Alpaca client using their own credentials
+            user_api = tradeapi.REST(
+                key_id=user.alpaca_api_key,
+                secret_key=user.alpaca_secret_key,
+                base_url=user.alpaca_base_url,
+            )
 
-    minimum_acceptable = backtest_sharpe * (1 - threshold)
-    alert = live_sharpe < minimum_acceptable
+            try:
+                live_sharpe, _ = _compute_live_sharpe(user.alert_days, api_client=user_api)
+            except ValueError:
+                # Not enough data or no variance for this user — skip and move to next
+                continue
 
-    if alert:
-        pct_below = round((backtest_sharpe - live_sharpe) / backtest_sharpe * 100, 2)
-        _send_alert_email(live_sharpe, backtest_sharpe, pct_below, threshold)
+            minimum_acceptable = user.backtest_sharpe * (1 - user.alert_threshold)
+            alert = live_sharpe < minimum_acceptable
+
+            if alert:
+                pct_below = round((user.backtest_sharpe - live_sharpe) / user.backtest_sharpe * 100, 2)
+                _send_alert_email(live_sharpe, user.backtest_sharpe, pct_below, user.alert_threshold, recipient=user.email)
+    finally:
+        db.close()
 
 
 # Create the scheduler but don't start it yet — startup event handles that
@@ -63,6 +75,47 @@ def start_scheduler():
 def stop_scheduler():
     """Stop the background scheduler cleanly when the app stops."""
     scheduler.shutdown()
+
+
+class UserRegister(BaseModel):
+    email: str
+    alpaca_api_key: str
+    alpaca_secret_key: str
+    alpaca_base_url: str = "https://paper-api.alpaca.markets"
+    backtest_sharpe: float
+    alert_days: int = 30
+    alert_threshold: float = 0.3
+
+
+@app.post("/users/register")
+def register_user(user: UserRegister, db: Session = Depends(get_db)):
+    """Register a new user and save their settings to the database."""
+
+    # Check if email already exists
+    existing = db.query(models.User).filter(models.User.email == user.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered.")
+
+    new_user = models.User(
+        email=user.email,
+        alpaca_api_key=user.alpaca_api_key,
+        alpaca_secret_key=user.alpaca_secret_key,
+        alpaca_base_url=user.alpaca_base_url,
+        backtest_sharpe=user.backtest_sharpe,
+        alert_days=user.alert_days,
+        alert_threshold=user.alert_threshold,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "message": "User registered successfully.",
+        "id": new_user.id,
+        "email": new_user.email,
+        "created_at": new_user.created_at,
+    }
 
 
 @app.get("/")
@@ -107,12 +160,15 @@ def get_positions():
     ]
 
 
-def _compute_live_sharpe(days: int):
+def _compute_live_sharpe(days: int, api_client=None):
     """
     Shared helper used by /sharpe and /monitor.
     Returns (sharpe, trading_days) on success, or raises a ValueError with a message.
+    api_client defaults to the global api if not provided.
     """
-    history = api.get_portfolio_history(period=f"{days}D", timeframe="1D")
+    if api_client is None:
+        api_client = api
+    history = api_client.get_portfolio_history(period=f"{days}D", timeframe="1D")
     returns = [r for r in history.profit_loss_pct if r is not None]
 
     if len(returns) < 2:
@@ -157,11 +213,13 @@ def get_sharpe(days: int = 30):
     }
 
 
-def _send_alert_email(live_sharpe: float, backtest_sharpe: float, pct_below: float, threshold: float):
+def _send_alert_email(live_sharpe: float, backtest_sharpe: float, pct_below: float, threshold: float, recipient: str = None):
     """Send a SendGrid alert email when strategy drift is detected."""
     sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
     sender = os.getenv("SENDER_EMAIL")
-    recipient = os.getenv("ALERT_EMAIL")
+    # Fall back to ALERT_EMAIL from .env if no recipient provided
+    if recipient is None:
+        recipient = os.getenv("ALERT_EMAIL")
 
     body = f"""
 Izonu has detected strategy drift in your live trading account.
