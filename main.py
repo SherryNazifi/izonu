@@ -313,56 +313,6 @@ def monitor(backtest_sharpe: float, days: int = 30, threshold: float = 0.3):
     }
 
 
-@app.get("/monitor/test")
-def monitor_test():
-    """Trigger a fake alert to test the SendGrid email integration."""
-
-    # Hardcoded values that will always trigger an alert
-    backtest_sharpe = 1.84
-    live_sharpe = 0.5
-    threshold = 0.4
-
-    minimum_acceptable = backtest_sharpe * (1 - threshold)
-    pct_below = round((backtest_sharpe - live_sharpe) / backtest_sharpe * 100, 2)
-
-    try:
-        _send_alert_email(live_sharpe, backtest_sharpe, pct_below, threshold)
-        email_status = f"Alert email sent to {os.getenv('ALERT_EMAIL')}"
-    except Exception as e:
-        email_status = f"Email failed to send: {str(e)}"
-
-    return {
-        "note": "This is a fake alert to test the email integration",
-        "alert": True,
-        "backtest_sharpe": backtest_sharpe,
-        "live_sharpe": live_sharpe,
-        "minimum_acceptable_sharpe": round(minimum_acceptable, 4),
-        "pct_below_backtest": pct_below,
-        "threshold_pct": int(threshold * 100),
-        "email_status": email_status,
-    }
-
-
-@app.get("/sharpe/test")
-def get_sharpe_test():
-    """Verify Sharpe math using hardcoded fake daily returns."""
-
-    # Fake daily returns as decimals (e.g. 0.01 = 1%)
-    returns = [0.01, -0.005, 0.02, 0.003, -0.01, 0.015, 0.008, -0.003, 0.012, 0.007]
-
-    mean_r = statistics.mean(returns)
-    std_r = statistics.stdev(returns)
-    sharpe = (mean_r / std_r) * math.sqrt(252)
-
-    return {
-        "note": "These are hardcoded fake returns to verify the math",
-        "fake_returns": returns,
-        "mean_daily_return_pct": round(mean_r * 100, 4),
-        "std_daily_return_pct": round(std_r * 100, 4),
-        "sharpe_ratio": round(sharpe, 4),
-    }
-
-
 @app.get("/orders")
 def get_orders(status: str = "open"):
     """Return orders filtered by status (open, closed, all)."""
