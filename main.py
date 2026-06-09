@@ -1,5 +1,7 @@
 from typing import Dict
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import alpaca_trade_api as tradeapi
@@ -17,6 +19,9 @@ import models
 load_dotenv()
 
 app = FastAPI(title="Izonu", description="Live algo trading strategy monitor for Alpaca")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 api = tradeapi.REST(
     key_id=os.getenv("ALPACA_API_KEY"),
@@ -120,7 +125,7 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
 
 @app.get("/")
 def root():
-    return {"message": "Izonu is running"}
+    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
 
 
 @app.get("/account")
