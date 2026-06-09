@@ -65,7 +65,7 @@ def _scheduled_monitor():
 
 # Create the scheduler but don't start it yet — startup event handles that
 scheduler = BackgroundScheduler()
-scheduler.add_job(_scheduled_monitor, CronTrigger(hour=9, minute=0, timezone=os.getenv("TIMEZONE", "UTC")))
+scheduler.add_job(_scheduled_monitor, CronTrigger(hour=9, minute=0, timezone="America/New_York"))
 
 
 @app.on_event("startup")

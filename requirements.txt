@@ -7,3 +7,4 @@ apscheduler
 sqlalchemy
 psycopg2-binary
 aiofiles
+tzdata
