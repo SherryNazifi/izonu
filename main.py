@@ -92,6 +92,14 @@ class UserRegister(BaseModel):
     alert_threshold: float = 0.3
 
 
+@app.delete("/admin/users")
+def delete_all_users(db: Session = Depends(get_db)):
+    """Delete all users from the database. For development use only."""
+    count = db.query(models.User).delete()
+    db.commit()
+    return {"message": f"Deleted {count} user(s)."}
+
+
 @app.post("/users/register")
 def register_user(user: UserRegister, db: Session = Depends(get_db)):
     """Register a new user and save their settings to the database."""
