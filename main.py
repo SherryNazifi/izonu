@@ -1,4 +1,5 @@
 from typing import Dict
+from collections import defaultdict
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -48,7 +49,7 @@ def _scheduled_monitor():
             )
 
             try:
-                live_sharpe, _ = _compute_live_sharpe(user.alert_days, api_client=user_api)
+                live_sharpe, *_ = _compute_live_metrics(user.alert_days, api_client=user_api)
             except ValueError:
                 # Not enough data or no variance for this user — skip and move to next
                 continue
@@ -173,21 +174,22 @@ def get_positions():
     ]
 
 
-def _compute_live_sharpe(days: int, api_client=None):
+def _compute_live_metrics(days: int, api_client=None):
     """
-    Shared helper used by /sharpe and /monitor.
-    Returns (sharpe, trading_days) on success, or raises a ValueError with a message.
+    Shared helper used by /metrics, /sharpe, and _scheduled_monitor.
+    Returns (sharpe, sortino, max_drawdown, win_rate, trading_days) on success,
+    or raises a ValueError with a message.
     api_client defaults to the global api if not provided.
     """
     if api_client is None:
         api_client = api
+
+    # Portfolio history — used for sharpe, sortino, max drawdown
     history = api_client.get_portfolio_history(period=f"{days}D", timeframe="1D")
     returns = [r for r in history.profit_loss_pct if r is not None]
 
     if len(returns) < 2:
-        raise ValueError(
-            f"not_enough_data|{len(returns)}"
-        )
+        raise ValueError(f"not_enough_data|{len(returns)}")
 
     mean_r = statistics.mean(returns)
     std_r = statistics.stdev(returns)
@@ -196,14 +198,70 @@ def _compute_live_sharpe(days: int, api_client=None):
         raise ValueError("no_variance")
 
     sharpe = round((mean_r / std_r) * math.sqrt(252), 4)
-    return sharpe, len(returns)
+
+    # Sortino: same annualisation but uses only downside deviation
+    downside = [r for r in returns if r < 0]
+    if len(downside) >= 2:
+        downside_std = statistics.stdev(downside)
+        sortino = round((mean_r / downside_std) * math.sqrt(252), 4) if downside_std > 0 else None
+    else:
+        sortino = None  # too few losing days to measure downside risk
+
+    # Max drawdown from the equity curve implied by daily returns
+    equity = [1.0]
+    for r in returns:
+        equity.append(equity[-1] * (1 + r))
+    peak = equity[0]
+    max_dd = 0.0
+    for val in equity:
+        if val > peak:
+            peak = val
+        dd = (peak - val) / peak
+        if dd > max_dd:
+            max_dd = dd
+    max_drawdown = round(max_dd, 4)
+
+    # Win rate from list_orders — FIFO-matched buy/sell pairs per symbol
+    orders = api_client.list_orders(status="closed")
+    filled = [o for o in orders if o.status == "filled" and o.filled_avg_price is not None]
+
+    by_symbol = defaultdict(list)
+    for o in filled:
+        by_symbol[o.symbol].append(o)
+
+    wins = 0
+    total_matched = 0
+    for symbol_orders in by_symbol.values():
+        symbol_orders.sort(key=lambda o: o.filled_at)
+        buy_queue = []  # each entry: [price, remaining_qty]
+        for o in symbol_orders:
+            price = float(o.filled_avg_price)
+            qty = float(o.qty)
+            if o.side == "buy":
+                buy_queue.append([price, qty])
+            elif o.side == "sell":
+                remaining = qty
+                while remaining > 0 and buy_queue:
+                    buy_price, buy_qty = buy_queue[0]
+                    matched = min(remaining, buy_qty)
+                    total_matched += 1
+                    if price > buy_price:
+                        wins += 1
+                    remaining -= matched
+                    buy_queue[0][1] -= matched
+                    if buy_queue[0][1] <= 0:
+                        buy_queue.pop(0)
+
+    win_rate = round(wins / total_matched, 4) if total_matched > 0 else None
+
+    return sharpe, sortino, max_drawdown, win_rate, len(returns)
 
 
 @app.get("/sharpe")
 def get_sharpe(days: int = 30):
     """Calculate annualised Sharpe ratio from daily portfolio returns over the last N days."""
     try:
-        sharpe, trading_days = _compute_live_sharpe(days)
+        sharpe, _sortino, _max_dd, _win_rate, trading_days = _compute_live_metrics(days)
     except ValueError as e:
         msg = str(e)
         if msg.startswith("not_enough_data"):
@@ -221,6 +279,36 @@ def get_sharpe(days: int = 30):
 
     return {
         "sharpe_ratio": sharpe,
+        "trading_days_analyzed": trading_days,
+        "period_days_requested": days,
+    }
+
+
+@app.get("/metrics")
+def get_metrics(days: int = 30):
+    """Return Sharpe ratio, Sortino ratio, max drawdown, and win rate for the last N days."""
+    try:
+        sharpe, sortino, max_drawdown, win_rate, trading_days = _compute_live_metrics(days)
+    except ValueError as e:
+        msg = str(e)
+        if msg.startswith("not_enough_data"):
+            found = msg.split("|")[1]
+            return {
+                "error": "Not enough trading data to calculate metrics.",
+                "trading_days_found": int(found),
+                "days_requested": days,
+                "suggestion": f"Try increasing the days parameter beyond {days}.",
+            }
+        return {
+            "error": "No variance in daily returns — cannot calculate metrics.",
+            "reason": "This usually means no trades were executed in this period.",
+        }
+
+    return {
+        "sharpe_ratio": sharpe,
+        "sortino_ratio": sortino,
+        "max_drawdown": max_drawdown,
+        "win_rate": win_rate,
         "trading_days_analyzed": trading_days,
         "period_days_requested": days,
     }
@@ -268,7 +356,7 @@ def monitor(backtest_sharpe: float, days: int = 30, threshold: float = 0.3):
 
     # Calculate live Sharpe — reuse the same helper as /sharpe
     try:
-        live_sharpe, trading_days = _compute_live_sharpe(days)
+        live_sharpe, _sortino, _max_dd, _win_rate, trading_days = _compute_live_metrics(days)
     except ValueError as e:
         msg = str(e)
         if msg.startswith("not_enough_data"):
