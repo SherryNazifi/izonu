@@ -207,10 +207,8 @@ def _compute_live_metrics(days: int, api_client=None):
     else:
         sortino = None  # too few losing days to measure downside risk
 
-    # Max drawdown from the equity curve implied by daily returns
-    equity = [1.0]
-    for r in returns:
-        equity.append(equity[-1] * (1 + r))
+    # Max drawdown from the actual equity curve
+    equity = [e for e in history.equity if e is not None]
     peak = equity[0]
     max_dd = 0.0
     for val in equity:
