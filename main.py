@@ -1,5 +1,6 @@
 from typing import Dict
 from collections import defaultdict
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -340,10 +341,8 @@ def _execution_drift(days: int, api_client=None):
     if api_client is None:
         api_client = api
 
-    orders = api_client.list_orders(status="all", limit=500, after=(
-        (lambda d: d.strftime("%Y-%m-%dT%H:%M:%SZ"))
-        (__import__("datetime").datetime.utcnow() - __import__("datetime").timedelta(days=days))
-    ))
+    after = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    orders = api_client.list_orders(status="all", limit=500, after=after)
 
     if not orders:
         raise ValueError("no_orders")
