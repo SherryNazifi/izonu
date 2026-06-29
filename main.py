@@ -231,24 +231,43 @@ def _compute_live_metrics(days: int, api_client=None):
     total_matched = 0
     for symbol_orders in by_symbol.values():
         symbol_orders.sort(key=lambda o: o.filled_at)
-        buy_queue = []  # each entry: [price, remaining_qty]
+        buy_queue = []   # open longs: [price, remaining_qty]
+        sell_queue = []  # open shorts: [price, remaining_qty]
         for o in symbol_orders:
             price = float(o.filled_avg_price)
             qty = float(o.qty)
             if o.side == "buy":
-                buy_queue.append([price, qty])
+                # First try to close any open shorts
+                remaining = qty
+                while remaining > 0 and sell_queue:
+                    short_price, short_qty = sell_queue[0]
+                    matched = min(remaining, short_qty)
+                    total_matched += 1
+                    if price < short_price:  # bought back lower than shorted — win
+                        wins += 1
+                    remaining -= matched
+                    sell_queue[0][1] -= matched
+                    if sell_queue[0][1] <= 0:
+                        sell_queue.pop(0)
+                # Any leftover qty is a new long entry
+                if remaining > 0:
+                    buy_queue.append([price, remaining])
             elif o.side == "sell":
+                # First try to close any open longs (long exit takes priority)
                 remaining = qty
                 while remaining > 0 and buy_queue:
                     buy_price, buy_qty = buy_queue[0]
                     matched = min(remaining, buy_qty)
                     total_matched += 1
-                    if price > buy_price:
+                    if price > buy_price:  # sold higher than bought — win
                         wins += 1
                     remaining -= matched
                     buy_queue[0][1] -= matched
                     if buy_queue[0][1] <= 0:
                         buy_queue.pop(0)
+                # Any leftover qty is a new short entry
+                if remaining > 0:
+                    sell_queue.append([price, remaining])
 
     win_rate = round(wins / total_matched, 4) if total_matched > 0 else None
 
