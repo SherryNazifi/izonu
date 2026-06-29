@@ -331,6 +331,72 @@ def get_metrics(days: int = 30):
     }
 
 
+def _execution_drift(days: int, api_client=None):
+    """
+    Returns (avg_latency_seconds, avg_slippage, rejection_rate) for orders over the last N days.
+    Raises ValueError("no_orders") if no orders exist in the period.
+    api_client defaults to the global api if not provided.
+    """
+    if api_client is None:
+        api_client = api
+
+    orders = api_client.list_orders(status="all", limit=500, after=(
+        (lambda d: d.strftime("%Y-%m-%dT%H:%M:%SZ"))
+        (__import__("datetime").datetime.utcnow() - __import__("datetime").timedelta(days=days))
+    ))
+
+    if not orders:
+        raise ValueError("no_orders")
+
+    # Latency: filled_at - submitted_at in seconds, for filled orders only
+    latency_samples = []
+    for o in orders:
+        if o.status == "filled" and o.filled_at and o.submitted_at:
+            delta = (o.filled_at - o.submitted_at).total_seconds()
+            latency_samples.append(delta)
+    avg_latency = round(statistics.mean(latency_samples), 4) if latency_samples else None
+
+    # Slippage: limit orders only
+    # Buy: filled_avg_price - limit_price (positive = paid more than limit)
+    # Sell: limit_price - filled_avg_price (positive = received less than limit)
+    slippage_samples = []
+    for o in orders:
+        if o.type == "limit" and o.status == "filled" and o.limit_price and o.filled_avg_price:
+            fill = float(o.filled_avg_price)
+            limit = float(o.limit_price)
+            if o.side == "buy":
+                slippage_samples.append(fill - limit)
+            elif o.side == "sell":
+                slippage_samples.append(limit - fill)
+    avg_slippage = round(statistics.mean(slippage_samples), 4) if slippage_samples else None
+
+    # Rejection rate: orders that were not filled / total orders
+    not_filled = [o for o in orders if o.status not in ("filled", "partially_filled")]
+    rejection_rate = round(len(not_filled) / len(orders), 4)
+
+    return avg_latency, avg_slippage, rejection_rate
+
+
+@app.get("/execution-drift")
+def get_execution_drift(days: int = 30):
+    """Return avg order latency, avg slippage, and rejection rate over the last N days."""
+    try:
+        avg_latency, avg_slippage, rejection_rate = _execution_drift(days)
+    except ValueError:
+        return {
+            "error": "No orders found in the requested period.",
+            "days_requested": days,
+            "suggestion": f"Try increasing the days parameter beyond {days}.",
+        }
+
+    return {
+        "avg_latency_seconds": avg_latency,
+        "avg_slippage": avg_slippage,
+        "rejection_rate": rejection_rate,
+        "period_days_requested": days,
+    }
+
+
 def _send_alert_email(live_sharpe: float, backtest_sharpe: float, pct_below: float, threshold: float, recipient: str = None):
     """Send a SendGrid alert email when strategy drift is detected."""
     sg = SendGridAPIClient(os.getenv("SENDGRID_API_KEY"))
