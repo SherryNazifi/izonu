@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Izonu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    html, body { margin: 0; background: #000; }
+    ::selection { background: hsla(333, 100%, 59%, 0.267); color: #fff; }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div style="min-height: 100vh; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; position: relative; overflow: hidden; display: flex; flex-direction: column; background-color: #000000">
+
+  <canvas id="izonu-eyes" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;"></canvas>
+
+  <nav style="display: flex; align-items: center; justify-content: space-between; padding: 28px 44px; position: relative; z-index: 10;">
+    <div style="font-weight: 700; font-size: 20px; letter-spacing: -0.03em; color: #fff;">Izonu</div>
+    <a href="#" style="font-size: 13.5px; color: rgba(255,255,255,0.45); text-decoration: none; font-weight: 500; letter-spacing: -0.01em;"
+       onmouseover="this.style.color='rgba(255,255,255,0.8)'"
+       onmouseout="this.style.color='rgba(255,255,255,0.45)'">Sign in</a>
+  </nav>
+
+  <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; align-items: center; position: relative; z-index: 5;">
+    <div style="padding: 0 44px 80px 44px;">
+
+      <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 38px; padding: 5px 13px; border: 1px solid rgba(255,255,255,0.09); border-radius: 100px; font-size: 11px; letter-spacing: 0.06em; color: rgba(255,255,255,0.5); font-weight: 500;">
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #00E5FF; box-shadow: 0 0 6px #00E5FF, 0 0 12px rgba(0,229,255,0.5);"></span>
+        LIVE STRATEGY MONITORING
+      </div>
+
+      <h1 style="font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 800; font-size: clamp(52px, 5.8vw, 92px); line-height: 0.94; letter-spacing: -0.02em; margin: 0 0 30px 0; color: #fff; text-wrap: balance;">
+        It broke.<br>You just<br>don't know<br>yet.
+      </h1>
+
+      <p style="font-size: 16.5px; line-height: 1.68; color: rgba(255,255,255,0.45); margin: 0 0 46px 0; max-width: 390px; font-weight: 400; letter-spacing: -0.01em;">
+        Izonu monitors your live algo trading strategies against backtest performance. It catches silent drift the moment it starts, before it costs you.
+      </p>
+
+      <a href="#"
+         style="display: inline-flex; align-items: center; gap: 10px; color: #fff; font-weight: 600; font-size: 14.5px; padding: 14px 26px; border-radius: 7px; text-decoration: none; letter-spacing: -0.02em; transition: transform .14s ease, box-shadow .14s ease; background-color: transparent; border: 1px solid rgba(255,255,255,0.5);"
+         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 32px rgba(255,255,255,0.13)'"
+         onmouseout="this.style.transform=''; this.style.boxShadow=''">
+        Start monitoring <span style="font-size: 15px;">→</span>
+      </a>
+
+    </div>
+    <div style="height: 100%; min-height: 500px; width: 572px;"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  let mxR = 0.72, myR = 0.5;
+  let ox = 0, oy = 0;
+  let t = 0, dots = null, ep = null, raf = null;
+  const cv = document.getElementById('izonu-eyes');
+  if (!cv) return;
+
+  const fit = () => {
+    cv.width  = cv.offsetWidth  * devicePixelRatio;
+    cv.height = cv.offsetHeight * devicePixelRatio;
+    dots = null;
+  };
+  fit();
+  new ResizeObserver(fit).observe(cv);
+  window.addEventListener('mousemove', (e) => {
+    mxR = e.clientX / window.innerWidth;
+    myR = e.clientY / window.innerHeight;
+  });
+
+  function build() {
+    const W = cv.width, H = cv.height;
+    const S = 5.5 * devicePixelRatio, rnd = Math.random.bind(Math);
+    dots = [];
+
+    const ewG  = Math.min(W * 0.268, 483 * devicePixelRatio);
+    const ehG  = ewG * 0.43;
+    const spG  = ewG * 1.12;
+    const pcxG = W * 0.69;
+    const pcyG = H * 0.495;
+    const eyeCentersG = [pcxG - spG / 2, pcxG + spG / 2];
+    const inEye = (px, py) => {
+      for (const cx of eyeCentersG) {
+        const nx = (px - cx) / (ewG / 2 * 1.12);
+        const ny = (py - pcyG) / (ehG / 2 * 1.12);
+        if (nx * nx + ny * ny * (1 + 0.74 * nx * nx) < 1) return true;
+      }
+      return false;
+    };
+
+
+    const ew  = Math.min(W * 0.268, 483 * devicePixelRatio);
+    const eh  = ew * 0.43;
+    const ir  = ew * 0.285;
+    const pr  = ir * 0.41;
+    const sp  = ew * 1.12;
+    const pcx = W * 0.645;
+    const pcy = H * 0.50;
+    const eyeAccents = [
+      { r: 255, g: 45,  b: 138 },
+      { r: 0,   g: 229, b: 255 }
+    ];
+    const eyeCenters = [pcx - sp / 2, pcx + sp / 2];
+
+    for (let ei = 0; ei < 2; ei++) {
+      const cx = eyeCenters[ei];
+      for (let gx = cx - ew * 0.63; gx <= cx + ew * 0.63; gx += S) {
+        for (let gy = pcy - eh * 1.45; gy <= pcy + eh * 1.45; gy += S) {
+          const px = gx + (rnd() - 0.5) * S * 0.48;
+          const py = gy + (rnd() - 0.5) * S * 0.48;
+          const nx = (px - cx) / (ew / 2);
+          const ny = (py - pcy) / (eh / 2);
+          if (nx * nx + ny * ny * (1 + 0.74 * nx * nx) >= 1) continue;
+          dots.push({ k: 1, cx, cy: pcy, ir, pr, ei, x: px, y: py, sz: (0.9 + rnd() * 1.3) * devicePixelRatio, ph: rnd() * 6.28, ba: 0.10 + rnd() * 0.35 });
+        }
+      }
+    }
+
+    // Orbit particles — 30 per eye, elliptical paths drifting around iris
+    for (let ei = 0; ei < 2; ei++) {
+      const cx = eyeCenters[ei];
+      for (let i = 0; i < 100; i++) {
+        dots.push({
+          k: 2, ei, cx, cy: pcy,
+          angle:       rnd() * Math.PI * 2,
+          rBase:       ir * (1.8 + rnd() * 2.7),
+          rJitter:     ir * (0.08 + rnd() * 0.25),
+          phaseOffset: rnd() * Math.PI * 2,
+          speed:       (0.00096 + rnd() * 0.00336) * (rnd() < 0.5 ? 1 : -1),
+          sz:          (0.75 + rnd() * 1.8) * devicePixelRatio,
+        });
+      }
+    }
+
+    ep = { ew, eh, ir, pr, sp, eyeCenters, pcy, eyeAccents };
+  }
+
+  function paint() {
+    if (!cv || !cv.width || !cv.height) return;
+    if (!dots) build();
+    t += 0.0167;
+
+    const { ew, ir, pr, eyeCenters, pcy, eyeAccents } = ep;
+    const md = ew * 0.10;
+    const tx = (mxR - 0.72) * 2 * md;
+    const ty = (myR - 0.5)  * 2 * md * 0.35;
+    ox += (tx - ox) * 0.055;
+    oy += (ty - oy) * 0.055;
+
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    const pulse = 0.78 + 0.22 * Math.sin(t * 1.6);
+
+    const bg = [], sc = [[], []], iB = [[[], [], [], []], [[], [], [], []]], pu = [[], []], hl = [[], []], orb = [[], []];
+    for (const d of dots) {
+      if (d.k === 0) { bg.push(d); continue; }
+      if (d.k === 2) { d.angle += d.speed; orb[d.ei].push(d); continue; }
+      const icx = eyeCenters[d.ei] + ox, icy = pcy + oy;
+      const di = Math.sqrt((d.x - icx) ** 2 + (d.y - icy) ** 2);
+      if (di < pr * 0.95) { pu[d.ei].push(d); continue; }
+      if (di < ir) {
+        const hlx = icx - ir * 0.18, hly = icy - ir * 0.28;
+        if (Math.sqrt((d.x - hlx) ** 2 + (d.y - hly) ** 2) < ir * 0.12) { hl[d.ei].push(d); continue; }
+        iB[d.ei][Math.min(3, (di / ir * 4) | 0)].push(d);
+      } else {
+        sc[d.ei].push(d);
+      }
+    }
+
+    const fill = (arr, style, sm = 1) => {
+      if (!arr.length) return;
+      ctx.fillStyle = style;
+      ctx.beginPath();
+      for (const d of arr) { const s = d.sz * sm; ctx.moveTo(d.x + s, d.y); ctx.arc(d.x, d.y, s, 0, 6.2832); }
+      ctx.fill();
+    };
+
+
+    for (let ei = 0; ei < 2; ei++) {
+      const ac = eyeAccents[ei];
+      const pv = pulse;
+      const scLo  = sc[ei].filter(d => d.ba < 0.22);
+      const scMid = sc[ei].filter(d => d.ba >= 0.22 && d.ba < 0.34);
+      const scHi  = sc[ei].filter(d => d.ba >= 0.34);
+      fill(scLo,  `rgba(130,130,138,${(0.08 * pv).toFixed(3)})`, 0.85);
+      fill(scMid, `rgba(148,148,158,${(0.15 * pv).toFixed(3)})`, 0.92);
+      fill(scHi,  `rgba(162,162,172,${(0.24 * pv).toFixed(3)})`, 1.0);
+      // Orbit particles — fade out as they drift left of center
+      const icxO = eyeCenters[ei] + ox, icyO = pcy + oy;
+      for (const d of orb[ei]) {
+        const r = d.rBase + Math.sin(t * 0.7 + d.phaseOffset) * d.rJitter;
+        const px = icxO + Math.cos(d.angle) * r * 1.3;
+        const py = icyO + Math.sin(d.angle) * r * 1.9;
+        const xFade = Math.min(1, Math.max(0, (px - cv.width * 0.02) / (cv.width * 0.35)));
+        const a = 0.38 * pv * xFade;
+        if (a < 0.01) continue;
+        ctx.fillStyle = `rgba(${ac.r},${ac.g},${ac.b},${a.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(px, py, d.sz, 0, 6.2832);
+        ctx.fill();
+      }
+      const bright = [1.0, 0.90, 0.76, 0.58];
+      for (let b = 0; b < 4; b++) {
+        fill(iB[ei][b], `rgba(${ac.r},${ac.g},${ac.b},${(bright[b] * pv).toFixed(3)})`, 1.45 - b * 0.1);
+      }
+      fill(pu[ei], `rgba(3,3,8,0.96)`, 1.15);
+      fill(hl[ei], `rgba(230,245,255,${(0.92 * pv).toFixed(3)})`, 1.5);
+    }
+  }
+
+  const loop = () => { raf = requestAnimationFrame(loop); paint(); };
+  loop();
+})();
+</script>
+
+</body>
+</html>
