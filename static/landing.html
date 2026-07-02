@@ -10,13 +10,259 @@
   <style>
     html, body { margin: 0; background: #000; }
     ::selection { background: hsla(333, 100%, 59%, 0.267); color: #fff; }
+    .sharpe-chart {
+      height: 100%;
+      min-height: 500px;
+      width: 730px;
+      margin-left: -105px;
+      transform: translateY(-28px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .sharpe-chart svg {
+      width: min(100%, 730px);
+      height: auto;
+      overflow: visible;
+    }
+    .chart-line {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: drawLine 2.8s cubic-bezier(.42, 0, .18, 1) forwards;
+    }
+    .chart-line.backtest { animation-duration: 2.8s; }
+    .chart-marker {
+      opacity: 0;
+      animation: fadeMarker .35s ease 1.45s forwards;
+    }
+    .chart-callout {
+      opacity: 0;
+      animation: fadeMarker .45s ease 2.9s forwards;
+    }
+    .chart-callout line {
+      stroke: rgba(255,255,255,0.26);
+      stroke-width: 1;
+    }
+    .chart-callout text {
+      fill: rgba(255,255,255,0.62);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+    }
+    .chart-marker line {
+      stroke: rgba(255,255,255,0.28);
+      stroke-width: 1.4;
+    }
+    .chart-marker text {
+      fill: rgba(255,255,255,0.68);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .how-section {
+      min-height: 105vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 28px;
+      padding: 72px 72px 120px;
+      box-sizing: border-box;
+      position: relative;
+      z-index: 4;
+    }
+    .how-line {
+      width: 100%;
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+      overflow: hidden;
+    }
+    .how-line span {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.38);
+      transform: scaleX(0);
+      transform-origin: left center;
+      will-change: transform;
+    }
+    .how-eyebrow {
+      margin-top: 2px;
+      padding: 5px 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 5px;
+      color: rgba(255,255,255,0.58);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .how-section h2 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(54px, 5.8vw, 96px);
+      line-height: 0.98;
+      font-weight: 700;
+      letter-spacing: 0;
+      color: rgba(255,255,255,0.92);
+      text-align: center;
+      max-width: 880px;
+      margin: 36px 0 0;
+      text-wrap: balance;
+    }
+    .how-intro {
+      color: rgba(255,255,255,0.48);
+      font-size: 17px;
+      line-height: 1.7;
+      letter-spacing: -0.01em;
+      text-align: center;
+      max-width: 620px;
+      margin: 0 0 18px;
+    }
+    .how-grid {
+      width: min(100%, 1180px);
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border: 1px solid rgba(255,255,255,0.11);
+      margin-top: 28px;
+    }
+    .how-step {
+      min-height: 260px;
+      padding: 42px 42px 38px;
+      box-sizing: border-box;
+      text-align: center;
+      border-right: 1px solid rgba(255,255,255,0.11);
+      position: relative;
+      transition: background-color .18s ease;
+    }
+    .how-step::before {
+      content: "";
+      position: absolute;
+      inset: -1px;
+      border: 1px solid transparent;
+      background: linear-gradient(135deg, #00C2B8, #FF2D8A) border-box;
+      -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+    }
+    .how-step:hover {
+      background: rgba(255,255,255,0.025);
+    }
+    .how-step:hover::before {
+      opacity: 1;
+    }
+    .how-step:last-child {
+      border-right: 0;
+    }
+    .how-icon {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto 30px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      color: #00C2B8;
+      background: rgba(255,255,255,0.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .how-step h3 {
+      color: rgba(255,255,255,0.86);
+      font-size: 22px;
+      line-height: 1.25;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin: 0 0 18px;
+    }
+    .how-step p {
+      color: rgba(255,255,255,0.48);
+      font-size: 15.5px;
+      line-height: 1.65;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+    @media (max-width: 820px) {
+      .how-section {
+        padding: 52px 28px 82px;
+      }
+      .how-grid {
+        grid-template-columns: 1fr;
+      }
+      .how-step {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.11);
+      }
+      .how-step:last-child {
+        border-bottom: 0;
+      }
+    }
+    .final-cta {
+      padding: 8px 72px 62px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 11px;
+      position: relative;
+      z-index: 4;
+    }
+    .final-cta-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 28px;
+      border: 1px solid rgba(255,255,255,0.55);
+      border-radius: 7px;
+      color: #fff;
+      background: transparent;
+      text-decoration: none;
+      font-size: 14.5px;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    }
+    .final-cta-button:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255,255,255,0.8);
+      box-shadow: 0 10px 32px rgba(255,255,255,0.13);
+    }
+    .final-cta-note {
+      margin: 0;
+      color: rgba(255,255,255,0.38);
+      font-size: 11.5px;
+      line-height: 1.4;
+      letter-spacing: 0.01em;
+      text-align: center;
+    }
+    .site-footer {
+      padding: 28px 72px 44px;
+      color: rgba(255,255,255,0.42);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      position: relative;
+      z-index: 4;
+    }
+    @keyframes drawLine {
+      to { stroke-dashoffset: 0; }
+    }
+    @keyframes fadeMarker {
+      to { opacity: 1; }
+    }
   </style>
 </head>
 <body>
 
-<div style="min-height: 100vh; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; position: relative; overflow: hidden; display: flex; flex-direction: column; background-color: #000000">
+<div style="min-height: 100vh; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; position: relative; overflow: hidden; display: flex; flex-direction: column; background-color: #000000; padding-top: 86px; box-sizing: border-box;">
 
-  <nav style="display: flex; align-items: center; justify-content: space-between; padding: 28px 44px; position: relative; z-index: 10;">
+  <nav style="display: flex; align-items: center; justify-content: space-between; padding: 28px 44px; position: fixed; top: 0; left: 0; right: 0; z-index: 100; box-sizing: border-box; background: rgba(0,0,0,0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,0.06);">
     <div style="font-weight: 700; font-size: 20px; letter-spacing: -0.03em; color: #fff;">Izonu</div>
     <a href="#" style="font-size: 13.5px; color: rgba(255,255,255,0.45); text-decoration: none; font-weight: 500; letter-spacing: -0.01em;"
        onmouseover="this.style.color='rgba(255,255,255,0.8)'"
@@ -27,7 +273,7 @@
     <div style="padding: 0 44px 80px 44px;">
 
       <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 38px; padding: 5px 13px; border: 1px solid rgba(255,255,255,0.09); border-radius: 100px; font-size: 11px; letter-spacing: 0.06em; color: rgba(255,255,255,0.5); font-weight: 500;">
-        <span style="width: 5px; height: 5px; border-radius: 50%; background: #00E5FF; box-shadow: 0 0 6px #00E5FF, 0 0 12px rgba(0,229,255,0.5);"></span>
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #00C2B8; box-shadow: 0 0 6px #00C2B8, 0 0 12px rgba(0,194,184,0.5);"></span>
         LIVE STRATEGY MONITORING
       </div>
 
@@ -47,10 +293,116 @@
       </a>
 
     </div>
-    <div style="height: 100%; min-height: 500px; width: 572px;"></div>
+    <div class="sharpe-chart" aria-label="Animated chart showing live Sharpe ratio drifting below backtest Sharpe ratio">
+      <svg viewBox="0 0 572 500" role="img" aria-labelledby="chart-title chart-desc">
+        <title id="chart-title">Backtest and live Sharpe ratio drift</title>
+        <desc id="chart-desc">The teal backtest Sharpe ratio remains stable while the magenta live Sharpe ratio gradually and then sharply drifts downward.</desc>
+        <defs>
+          <filter id="tealGlow" x="-30%" y="-60%" width="160%" height="220%">
+            <feGaussianBlur stdDeviation="4" result="blur"></feGaussianBlur>
+            <feFlood flood-color="#00C2B8" flood-opacity="0.45"></feFlood>
+            <feComposite in2="blur" operator="in"></feComposite>
+            <feMerge>
+              <feMergeNode></feMergeNode>
+              <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+          </filter>
+          <filter id="magentaGlow" x="-30%" y="-60%" width="160%" height="220%">
+            <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+            <feFlood flood-color="#FF2D8A" flood-opacity="0.5"></feFlood>
+            <feComposite in2="blur" operator="in"></feComposite>
+            <feMerge>
+              <feMergeNode></feMergeNode>
+              <feMergeNode in="SourceGraphic"></feMergeNode>
+            </feMerge>
+          </filter>
+        </defs>
+
+        <path
+          class="chart-line backtest"
+          pathLength="1"
+          d="M 28 214 C 62 209, 94 218, 128 213 S 190 218, 222 212 S 284 209, 318 214 S 374 224, 414 218 S 494 211, 544 216"
+          stroke="#00C2B8"
+          stroke-width="3.5"
+          filter="url(#tealGlow)"></path>
+        <path
+          class="chart-line live"
+          pathLength="1"
+          d="M 28 214 C 62 216, 96 211, 128 216 S 188 221, 222 214 S 280 217, 318 240 C 348 254, 376 273, 402 306 C 424 332, 438 366, 466 385 C 494 405, 520 398, 544 414"
+          stroke="#FF2D8A"
+          stroke-width="4"
+          filter="url(#magentaGlow)"></path>
+        <g class="chart-callout">
+          <line x1="430" y1="214" x2="462" y2="184"></line>
+          <text x="467" y="184">Backtest Sharpe 1.84</text>
+        </g>
+        <g class="chart-callout">
+          <line x1="402" y1="306" x2="454" y2="316"></line>
+          <text x="459" y="320">Live Sharpe -0.43</text>
+        </g>
+        <g class="chart-marker">
+          <line x1="348" y1="124" x2="348" y2="394"></line>
+          <text x="360" y="130">Drift Detected</text>
+        </g>
+
+      </svg>
+    </div>
   </div>
 
+  <section class="how-section" aria-labelledby="how-title">
+    <div class="how-line" aria-hidden="true"><span></span></div>
+    <div class="how-eyebrow">How it works</div>
+    <h2 id="how-title">Your live strategy is compared to what it promised.</h2>
+    <p class="how-intro">
+      Izonu watches the relationship between backtest behavior and live performance, then surfaces drift before it becomes expensive.
+    </p>
+    <div class="how-grid">
+      <article class="how-step">
+        <div class="how-icon">1</div>
+        <h3>Connect the strategy</h3>
+        <p>Enter your Alpaca API key and your backtest Sharpe ratio. Setup takes under 60 seconds.</p>
+      </article>
+      <article class="how-step">
+        <div class="how-icon">2</div>
+        <h3>Track the gap</h3>
+        <p>Izonu checks your live Sharpe, Sortino, max drawdown, and win rate daily against your backtest baseline.</p>
+      </article>
+      <article class="how-step">
+        <div class="how-icon">3</div>
+        <h3>Catch the break</h3>
+        <p>When your live Sharpe drops more than 20% below your backtest, you get an email before it costs you.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="final-cta" aria-label="Start monitoring">
+    <a href="#" class="final-cta-button">Start monitoring</a>
+    <p class="final-cta-note">No trading permissions required. Read-only API access.</p>
+  </section>
+
+  <footer class="site-footer">Izonu · Built for algo traders · 2026</footer>
+
 </div>
+
+<script>
+  const howSection = document.querySelector('.how-section');
+  const howLine = document.querySelector('.how-line span');
+
+  function updateHowLine() {
+    if (!howSection || !howLine) return;
+
+    const rect = howSection.getBoundingClientRect();
+    const viewport = window.innerHeight || document.documentElement.clientHeight;
+    const progress = (viewport - rect.top) / (viewport * 0.7);
+    const clamped = Math.max(0, Math.min(1, progress));
+
+    howLine.style.transform = `scaleX(${clamped})`;
+  }
+
+  updateHowLine();
+  window.addEventListener('scroll', updateHowLine, { passive: true });
+  window.addEventListener('resize', updateHowLine);
+</script>
 
 </body>
 </html>
