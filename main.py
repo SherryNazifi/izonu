@@ -135,7 +135,7 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
 
 @app.get("/")
 def root():
-    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
+    return FileResponse(os.path.join(BASE_DIR, "static", "landing.html"))
 
 
 @app.get("/account")
