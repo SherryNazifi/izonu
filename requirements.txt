@@ -9,3 +9,4 @@ psycopg2-binary
 aiofiles
 tzdata
 pandas==2.2.3
+urllib3<2
