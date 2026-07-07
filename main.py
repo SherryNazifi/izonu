@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 import alpaca_trade_api as tradeapi
 import os
 import math
+import hashlib
+import hmac
+import secrets
 import statistics
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -86,12 +89,38 @@ def stop_scheduler():
 
 class UserRegister(BaseModel):
     email: str
+    password: str
     alpaca_api_key: str
     alpaca_secret_key: str
     alpaca_base_url: str = "https://paper-api.alpaca.markets"
     backtest_sharpe: float
     alert_days: int = 30
     alert_threshold: float = 0.3
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+
+# --- Password hashing (PBKDF2-HMAC-SHA256, stdlib only) ---
+_PBKDF2_ROUNDS = 260_000
+
+
+def hash_password(password: str) -> str:
+    """Hash a password with a random per-user salt. Returns 'salt$hash' (hex)."""
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), _PBKDF2_ROUNDS)
+    return f"{salt}${dk.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """Verify a password against a stored 'salt$hash' value in constant time."""
+    if not stored or "$" not in stored:
+        return False
+    salt, expected = stored.split("$", 1)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), _PBKDF2_ROUNDS)
+    return hmac.compare_digest(dk.hex(), expected)
 
 
 @app.delete("/admin/users")
@@ -113,6 +142,7 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
 
     new_user = models.User(
         email=user.email,
+        password_hash=hash_password(user.password),
         alpaca_api_key=user.alpaca_api_key,
         alpaca_secret_key=user.alpaca_secret_key,
         alpaca_base_url=user.alpaca_base_url,
@@ -130,6 +160,23 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
         "id": new_user.id,
         "email": new_user.email,
         "created_at": new_user.created_at,
+    }
+
+
+@app.post("/users/login")
+def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
+    """Authenticate a user by email and password."""
+    user = db.query(models.User).filter(models.User.email == credentials.email).first()
+
+    # Same generic error whether the email is unknown or the password is wrong,
+    # so we don't leak which emails are registered.
+    if user is None or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+
+    return {
+        "message": "Signed in successfully.",
+        "id": user.id,
+        "email": user.email,
     }
 
 

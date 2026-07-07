@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in · Izonu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #00C2B8;
+      --magenta: #FF2D8A;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    ::selection { background: hsla(333, 100%, 59%, 0.267); color: #fff; }
+
+    /* ambient glow backdrop */
+    body::before {
+      content: "";
+      position: absolute;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 900px;
+      background:
+        radial-gradient(circle at 30% 40%, rgba(0,194,184,0.16), transparent 55%),
+        radial-gradient(circle at 70% 60%, rgba(255,45,138,0.16), transparent 55%);
+      filter: blur(20px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand {
+      text-align: center;
+      font-weight: 700;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+      color: #fff;
+      margin-bottom: 26px;
+      text-decoration: none;
+      display: block;
+    }
+
+    /* toggle between sign in / sign up */
+    .toggle {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      background: #141414;
+      border: 1px solid #232323;
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 24px;
+    }
+    .toggle a {
+      text-align: center;
+      padding: 9px;
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: #888;
+      text-decoration: none;
+      border-radius: 7px;
+      transition: color .15s, background-color .15s;
+    }
+    .toggle a:hover { color: #cfcfcf; }
+    .toggle a.active {
+      color: #0a0a0a;
+      background: linear-gradient(135deg, var(--teal), var(--magenta));
+    }
+
+    .card {
+      background: #121212;
+      border: 1px solid #232323;
+      border-radius: 14px;
+      padding: 34px 30px;
+    }
+
+    .card h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-weight: 800;
+      font-size: 40px;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .card .sub {
+      font-size: 13.5px;
+      color: #7c7c7c;
+      line-height: 1.5;
+      margin-bottom: 28px;
+    }
+
+    .form-group { margin-bottom: 18px; }
+
+    label {
+      display: block;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #aaa;
+      margin-bottom: 8px;
+      letter-spacing: 0.2px;
+    }
+
+    input {
+      width: 100%;
+      background: #1b1b1b;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 14px;
+      color: #e8e8e8;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input::placeholder { color: #4a4a4a; }
+    input:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(0,194,184,0.12);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 12px;
+      padding: 13px;
+      background: linear-gradient(135deg, var(--teal), var(--magenta));
+      color: #0a0a0a;
+      border: none;
+      border-radius: 8px;
+      font-size: 14.5px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      cursor: pointer;
+      transition: transform .14s ease, box-shadow .14s ease, opacity .15s;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 30px rgba(255,45,138,0.18);
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .message {
+      margin-top: 18px;
+      padding: 13px 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+      display: none;
+    }
+    .message.success {
+      background: #0f2a1a;
+      border: 1px solid #1a4a2a;
+      color: #4ade80;
+    }
+    .message.error {
+      background: #2a0f0f;
+      border: 1px solid #4a1a1a;
+      color: #f87171;
+    }
+
+    .back {
+      display: block;
+      text-align: center;
+      margin-top: 22px;
+      font-size: 12.5px;
+      color: #666;
+      text-decoration: none;
+      transition: color .15s;
+    }
+    .back:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="/" class="brand">Izonu</a>
+
+    <div class="toggle">
+      <a href="/static/login.html" class="active">Sign in</a>
+      <a href="/static/signup.html">Sign up</a>
+    </div>
+
+    <div class="card">
+      <h1>Welcome back.</h1>
+      <p class="sub">Sign in to check on your live strategy.</p>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+
+      <button id="submit-btn" onclick="login()">Sign in</button>
+
+      <div class="message" id="message"></div>
+    </div>
+
+    <a href="/static/signup.html" class="back">Don't have an account? Sign up →</a>
+  </div>
+
+  <script>
+    async function login() {
+      const btn = document.getElementById("submit-btn");
+      const msg = document.getElementById("message");
+
+      const email    = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!email || !password) {
+        msg.className = "message error";
+        msg.textContent = "Please enter your email and password.";
+        msg.style.display = "block";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Signing in...";
+      msg.style.display = "none";
+
+      try {
+        const response = await fetch("/users/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          msg.className = "message success";
+          msg.textContent = "Signed in successfully.";
+          msg.style.display = "block";
+          btn.textContent = "Signed in";
+        } else {
+          msg.className = "message error";
+          msg.textContent = data.detail || "Invalid email or password.";
+          msg.style.display = "block";
+          btn.disabled = false;
+          btn.textContent = "Sign in";
+        }
+      } catch (err) {
+        msg.className = "message error";
+        msg.textContent = "Could not connect to the server. Make sure the app is running.";
+        msg.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Sign in";
+      }
+    }
+  </script>
+</body>
+</html>

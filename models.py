@@ -8,6 +8,7 @@ class User(Base):
 
     id               = Column(Integer, primary_key=True, index=True)
     email            = Column(String, unique=True, nullable=False)
+    password_hash    = Column(String, nullable=True)
     alpaca_api_key   = Column(String, nullable=False)
     alpaca_secret_key = Column(String, nullable=False)
     alpaca_base_url  = Column(String, nullable=False, default="https://paper-api.alpaca.markets")
