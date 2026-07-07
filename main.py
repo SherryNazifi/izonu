@@ -1,12 +1,14 @@
 from typing import Dict
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 import alpaca_trade_api as tradeapi
+import jwt
 import os
 import math
 import hashlib
@@ -123,6 +125,68 @@ def verify_password(password: str, stored: str) -> bool:
     return hmac.compare_digest(dk.hex(), expected)
 
 
+# --- JWT authentication ---
+JWT_SECRET = os.getenv("JWT_SECRET")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_DAYS = 7
+
+# Reads the "Authorization: Bearer <token>" header off each request.
+# auto_error=False lets us raise our own 401 with a clear message.
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+def create_access_token(user_id: int) -> str:
+    """Create a signed JWT containing the user id as the subject."""
+    if not JWT_SECRET:
+        raise RuntimeError("JWT_SECRET is not set in the environment.")
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": str(user_id),
+        "iat": now,
+        "exp": now + timedelta(days=JWT_EXPIRE_DAYS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> "models.User":
+    """
+    Dependency for protected endpoints. Reads the bearer token from the
+    Authorization header, verifies its signature, extracts the user id,
+    and returns the matching user from the database.
+    """
+    if not JWT_SECRET:
+        raise HTTPException(status_code=500, detail="Server auth is not configured.")
+
+    if credentials is None or not credentials.credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        user_id = int(payload["sub"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired.")
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid authentication token.")
+
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=401, detail="User no longer exists.")
+
+    return user
+
+
+def _user_api_client(user: "models.User"):
+    """Build an Alpaca REST client using a specific user's own credentials."""
+    return tradeapi.REST(
+        key_id=user.alpaca_api_key,
+        secret_key=user.alpaca_secret_key,
+        base_url=user.alpaca_base_url,
+    )
+
+
 @app.delete("/admin/users")
 def delete_all_users(db: Session = Depends(get_db)):
     """Delete all users from the database. For development use only."""
@@ -173,10 +237,14 @@ def login_user(credentials: UserLogin, db: Session = Depends(get_db)):
     if user is None or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
+    token = create_access_token(user.id)
+
     return {
         "message": "Signed in successfully.",
         "id": user.id,
         "email": user.email,
+        "access_token": token,
+        "token_type": "bearer",
     }
 
 
@@ -350,10 +418,15 @@ def get_sharpe(days: int = 30):
 
 
 @app.get("/metrics")
-def get_metrics(days: int = 30):
-    """Return Sharpe ratio, Sortino ratio, max drawdown, and win rate for the last N days."""
+def get_metrics(days: int = 30, current_user: "models.User" = Depends(get_current_user)):
+    """
+    Return Sharpe ratio, Sortino ratio, max drawdown, and win rate for the last N days.
+    The user is identified from the verified JWT, and metrics are computed against
+    that user's own Alpaca account.
+    """
+    user_api = _user_api_client(current_user)
     try:
-        sharpe, sortino, max_drawdown, win_rate, trading_days = _compute_live_metrics(days)
+        sharpe, sortino, max_drawdown, win_rate, trading_days = _compute_live_metrics(days, api_client=user_api)
     except ValueError as e:
         msg = str(e)
         if msg.startswith("not_enough_data"):
@@ -424,10 +497,15 @@ def _execution_drift(days: int, api_client=None):
 
 
 @app.get("/execution-drift")
-def get_execution_drift(days: int = 30):
-    """Return avg order latency, avg slippage, and rejection rate over the last N days."""
+def get_execution_drift(days: int = 30, current_user: "models.User" = Depends(get_current_user)):
+    """
+    Return avg order latency, avg slippage, and rejection rate over the last N days.
+    The user is identified from the verified JWT, and drift is computed against
+    that user's own Alpaca account.
+    """
+    user_api = _user_api_client(current_user)
     try:
-        avg_latency, avg_slippage, rejection_rate = _execution_drift(days)
+        avg_latency, avg_slippage, rejection_rate = _execution_drift(days, api_client=user_api)
     except ValueError:
         return {
             "error": "No orders found in the requested period.",

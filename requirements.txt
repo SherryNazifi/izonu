@@ -6,6 +6,7 @@ sendgrid
 apscheduler
 sqlalchemy
 psycopg2-binary
+pyjwt
 aiofiles
 tzdata
 pandas==2.2.3

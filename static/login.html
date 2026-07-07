@@ -258,6 +258,10 @@
         const data = await response.json();
 
         if (response.ok) {
+          // Store the signed JWT so it can be sent on every protected request.
+          if (data.access_token) {
+            localStorage.setItem("izonu_token", data.access_token);
+          }
           msg.className = "message success";
           msg.textContent = "Signed in successfully.";
           msg.style.display = "block";
