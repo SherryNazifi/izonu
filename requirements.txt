@@ -8,3 +8,4 @@ sqlalchemy
 psycopg2-binary
 aiofiles
 tzdata
+pandas==2.0.3
