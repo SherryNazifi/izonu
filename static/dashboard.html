@@ -197,6 +197,48 @@
       padding: 18px;
     }
 
+    .sharpe-chart {
+      display: grid;
+      gap: 10px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chart-label {
+      color: rgba(255,255,255,0.48);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .chart-track {
+      height: 10px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .chart-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      transition: width .35s ease;
+    }
+
+    .chart-fill.live {
+      background: linear-gradient(90deg, var(--teal), rgba(0,194,184,0.45));
+    }
+
+    .chart-fill.backtest {
+      background: linear-gradient(90deg, var(--magenta), rgba(255,45,138,0.45));
+    }
+
     .label {
       color: var(--muted);
       font-size: 12px;
@@ -374,6 +416,16 @@
             <span class="big-value" id="backtest-sharpe">--</span>
           </div>
         </div>
+        <div class="sharpe-chart" aria-label="Live and backtest Sharpe comparison">
+          <div class="chart-row">
+            <span class="chart-label">Live</span>
+            <div class="chart-track"><div class="chart-fill live" id="live-sharpe-bar"></div></div>
+          </div>
+          <div class="chart-row">
+            <span class="chart-label">Backtest</span>
+            <div class="chart-track"><div class="chart-fill backtest" id="backtest-sharpe-bar"></div></div>
+          </div>
+        </div>
         <p class="comparison-note" id="comparison-note">Backtest Sharpe is ready to display when the API includes it in the dashboard data.</p>
       </aside>
     </section>
@@ -451,6 +503,8 @@
       liveSharpe: document.getElementById("live-sharpe"),
       backtestSharpe: document.getElementById("backtest-sharpe"),
       comparisonNote: document.getElementById("comparison-note"),
+      liveSharpeBar: document.getElementById("live-sharpe-bar"),
+      backtestSharpeBar: document.getElementById("backtest-sharpe-bar"),
       metricSharpe: document.getElementById("metric-sharpe"),
       metricSortino: document.getElementById("metric-sortino"),
       metricDrawdown: document.getElementById("metric-drawdown"),
@@ -470,6 +524,30 @@
     function formatPercent(value) {
       if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
       return `${(Number(value) * 100).toFixed(1)}%`;
+    }
+
+    function formatDuration(seconds) {
+      if (seconds === null || seconds === undefined || Number.isNaN(Number(seconds))) return "--";
+      const totalSeconds = Math.max(0, Math.round(Number(seconds)));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const remainingSeconds = totalSeconds % 60;
+
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
+      return `${remainingSeconds}s`;
+    }
+
+    function renderSharpeBars(live, backtest) {
+      if (Number.isNaN(live) || Number.isNaN(backtest)) {
+        ids.liveSharpeBar.style.width = "0%";
+        ids.backtestSharpeBar.style.width = "0%";
+        return;
+      }
+
+      const max = Math.max(Math.abs(live), Math.abs(backtest), 1);
+      ids.liveSharpeBar.style.width = `${Math.max(4, Math.abs(live) / max * 100)}%`;
+      ids.backtestSharpeBar.style.width = `${Math.max(4, Math.abs(backtest) / max * 100)}%`;
     }
 
     function showError(message) {
@@ -526,9 +604,11 @@
         const live = Number(data.sharpe_ratio);
         const backtest = Number(data.backtest_sharpe);
         const diff = live - backtest;
+        renderSharpeBars(live, backtest);
         ids.comparisonNote.textContent = `Live Sharpe is ${formatNumber(Math.abs(diff))} ${diff >= 0 ? "above" : "below"} backtest.`;
       } else {
         ids.backtestSharpe.textContent = "--";
+        renderSharpeBars(Number(data.sharpe_ratio), NaN);
         ids.comparisonNote.textContent = "Backtest Sharpe is not returned by /metrics yet, so live Sharpe is shown on its own.";
       }
 
@@ -541,7 +621,7 @@
         return;
       }
 
-      ids.driftLatency.textContent = data.avg_latency_seconds === null ? "--" : `${formatNumber(data.avg_latency_seconds)}s`;
+      ids.driftLatency.textContent = formatDuration(data.avg_latency_seconds);
       ids.driftSlippage.textContent = formatNumber(data.avg_slippage, 4);
       ids.driftRejection.textContent = formatPercent(data.rejection_rate);
       ids.driftStatus.textContent = `Execution data covers the last ${data.period_days_requested || days} days.`;
