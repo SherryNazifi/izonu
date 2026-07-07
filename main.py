@@ -444,6 +444,7 @@ def get_metrics(days: int = 30, current_user: "models.User" = Depends(get_curren
 
     return {
         "sharpe_ratio": sharpe,
+        "backtest_sharpe": current_user.backtest_sharpe,
         "sortino_ratio": sortino,
         "max_drawdown": max_drawdown,
         "win_rate": win_rate,

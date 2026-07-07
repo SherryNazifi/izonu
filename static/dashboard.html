@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard · Izonu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --teal: #00C2B8;
+      --magenta: #FF2D8A;
+      --bg: #000;
+      --panel: #121212;
+      --panel-soft: #171717;
+      --line: #242424;
+      --muted: #7c7c7c;
+      --text: #e8e8e8;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    ::selection { background: hsla(333, 100%, 59%, 0.267); color: #fff; }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -35% auto auto 50%;
+      width: 980px;
+      height: 980px;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(circle at 30% 38%, rgba(0,194,184,0.15), transparent 55%),
+        radial-gradient(circle at 72% 58%, rgba(255,45,138,0.15), transparent 55%);
+      filter: blur(22px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .shell {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding-bottom: 42px;
+    }
+
+    .brand {
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      text-decoration: none;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill,
+    button {
+      min-height: 38px;
+      border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(18,18,18,0.72);
+      color: rgba(255,255,255,0.72);
+      padding: 0 14px;
+      font-size: 13px;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    button {
+      cursor: pointer;
+      transition: transform .14s ease, border-color .14s ease, color .14s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.34);
+      color: #fff;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+      gap: 22px;
+      align-items: stretch;
+      margin-bottom: 22px;
+    }
+
+    .intro,
+    .comparison,
+    .metric-card,
+    .drift-panel {
+      background: rgba(18,18,18,0.82);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    .intro {
+      padding: 38px;
+      min-height: 270px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .intro::after {
+      content: "";
+      position: absolute;
+      inset: auto -120px -170px auto;
+      width: 360px;
+      height: 360px;
+      background: radial-gradient(circle, rgba(0,194,184,0.15), transparent 62%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      width: fit-content;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 6px;
+      padding: 5px 9px;
+      color: rgba(255,255,255,0.55);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-size: clamp(50px, 6.4vw, 86px);
+      line-height: 0.92;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin: 22px 0 18px;
+      max-width: 700px;
+    }
+
+    .intro p {
+      max-width: 590px;
+      color: rgba(255,255,255,0.48);
+      font-size: 15.5px;
+      line-height: 1.7;
+    }
+
+    .comparison {
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .comparison h2,
+    .section-title {
+      color: rgba(255,255,255,0.9);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .sharpe-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .sharpe-box {
+      background: var(--panel-soft);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 18px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .big-value {
+      display: block;
+      color: #fff;
+      font-size: clamp(42px, 5vw, 64px);
+      line-height: 1;
+      font-weight: 750;
+      letter-spacing: -0.05em;
+      margin-top: 14px;
+    }
+
+    .comparison-note,
+    .status {
+      color: rgba(255,255,255,0.46);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .metric-card {
+      padding: 22px;
+      min-height: 154px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: border-color .15s ease, background-color .15s ease;
+    }
+
+    .metric-card:hover {
+      background: rgba(255,255,255,0.035);
+      border-color: rgba(255,255,255,0.18);
+    }
+
+    .metric-value {
+      color: #fff;
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 740;
+      letter-spacing: -0.04em;
+      margin-top: 18px;
+    }
+
+    .metric-caption {
+      color: rgba(255,255,255,0.42);
+      font-size: 12.5px;
+      line-height: 1.45;
+      margin-top: 10px;
+    }
+
+    .drift-panel {
+      padding: 26px;
+    }
+
+    .drift-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+    }
+
+    .drift-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .drift-item {
+      min-height: 132px;
+      padding: 22px;
+      background: rgba(255,255,255,0.018);
+      border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .drift-item:last-child { border-right: 0; }
+
+    .error {
+      display: none;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: #2a0f0f;
+      border: 1px solid #4a1a1a;
+      color: #f87171;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .hero,
+      .metrics-grid,
+      .drift-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .drift-item {
+        border-right: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+
+      .drift-item:last-child { border-bottom: 0; }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        width: min(100% - 28px, 1180px);
+        padding-top: 20px;
+      }
+
+      .topbar,
+      .drift-header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .intro,
+      .comparison,
+      .drift-panel {
+        padding: 22px;
+      }
+
+      .sharpe-pair {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="topbar">
+      <a href="/" class="brand">Izonu</a>
+      <div class="top-actions">
+        <span class="pill" id="period-label">30 days</span>
+        <button type="button" id="refresh-btn">Refresh</button>
+        <button type="button" id="logout-btn">Sign out</button>
+      </div>
+    </nav>
+
+    <div class="error" id="error"></div>
+
+    <section class="hero">
+      <div class="intro">
+        <div>
+          <span class="eyebrow">LIVE STRATEGY MONITOR</span>
+          <h1>Your strategy, at a glance.</h1>
+          <p>Live performance metrics from Alpaca, refreshed with your saved session token.</p>
+        </div>
+        <p class="status" id="status">Loading dashboard data...</p>
+      </div>
+
+      <aside class="comparison">
+        <h2>Live vs backtest Sharpe</h2>
+        <div class="sharpe-pair">
+          <div class="sharpe-box">
+            <span class="label">Live Sharpe</span>
+            <span class="big-value" id="live-sharpe">--</span>
+          </div>
+          <div class="sharpe-box">
+            <span class="label">Backtest Sharpe</span>
+            <span class="big-value" id="backtest-sharpe">--</span>
+          </div>
+        </div>
+        <p class="comparison-note" id="comparison-note">Backtest Sharpe is ready to display when the API includes it in the dashboard data.</p>
+      </aside>
+    </section>
+
+    <section class="metrics-grid" aria-label="Performance metrics">
+      <article class="metric-card">
+        <div>
+          <span class="label">Sharpe ratio</span>
+          <div class="metric-value" id="metric-sharpe">--</div>
+        </div>
+        <p class="metric-caption">Risk-adjusted return over the selected period.</p>
+      </article>
+
+      <article class="metric-card">
+        <div>
+          <span class="label">Sortino ratio</span>
+          <div class="metric-value" id="metric-sortino">--</div>
+        </div>
+        <p class="metric-caption">Return adjusted for downside volatility.</p>
+      </article>
+
+      <article class="metric-card">
+        <div>
+          <span class="label">Max drawdown</span>
+          <div class="metric-value" id="metric-drawdown">--</div>
+        </div>
+        <p class="metric-caption">Largest peak-to-trough decline.</p>
+      </article>
+
+      <article class="metric-card">
+        <div>
+          <span class="label">Win rate</span>
+          <div class="metric-value" id="metric-win-rate">--</div>
+        </div>
+        <p class="metric-caption">Matched closed trades ending in profit.</p>
+      </article>
+    </section>
+
+    <section class="drift-panel" aria-label="Execution drift">
+      <div class="drift-header">
+        <h2 class="section-title">Execution drift</h2>
+        <p class="status" id="drift-status">Latency, slippage, and rejection rate from recent orders.</p>
+      </div>
+
+      <div class="drift-grid">
+        <article class="drift-item">
+          <span class="label">Latency</span>
+          <div class="metric-value" id="drift-latency">--</div>
+          <p class="metric-caption">Average fill latency in seconds.</p>
+        </article>
+
+        <article class="drift-item">
+          <span class="label">Slippage</span>
+          <div class="metric-value" id="drift-slippage">--</div>
+          <p class="metric-caption">Average limit-order slippage.</p>
+        </article>
+
+        <article class="drift-item">
+          <span class="label">Rejection rate</span>
+          <div class="metric-value" id="drift-rejection">--</div>
+          <p class="metric-caption">Orders not filled or partially filled.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const token = localStorage.getItem("izonu_token");
+    const days = 30;
+
+    const ids = {
+      error: document.getElementById("error"),
+      status: document.getElementById("status"),
+      driftStatus: document.getElementById("drift-status"),
+      liveSharpe: document.getElementById("live-sharpe"),
+      backtestSharpe: document.getElementById("backtest-sharpe"),
+      comparisonNote: document.getElementById("comparison-note"),
+      metricSharpe: document.getElementById("metric-sharpe"),
+      metricSortino: document.getElementById("metric-sortino"),
+      metricDrawdown: document.getElementById("metric-drawdown"),
+      metricWinRate: document.getElementById("metric-win-rate"),
+      driftLatency: document.getElementById("drift-latency"),
+      driftSlippage: document.getElementById("drift-slippage"),
+      driftRejection: document.getElementById("drift-rejection"),
+      refresh: document.getElementById("refresh-btn"),
+      logout: document.getElementById("logout-btn"),
+    };
+
+    function formatNumber(value, digits = 2) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+      return Number(value).toFixed(digits);
+    }
+
+    function formatPercent(value) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+      return `${(Number(value) * 100).toFixed(1)}%`;
+    }
+
+    function showError(message) {
+      ids.error.textContent = message;
+      ids.error.style.display = "block";
+    }
+
+    function clearError() {
+      ids.error.textContent = "";
+      ids.error.style.display = "none";
+    }
+
+    function redirectToLogin() {
+      localStorage.removeItem("izonu_token");
+      window.location.replace("/static/login.html");
+    }
+
+    async function fetchWithToken(path) {
+      const response = await fetch(path, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        redirectToLogin();
+        return null;
+      }
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || "Dashboard request failed.");
+      }
+      return data;
+    }
+
+    function renderMetrics(data) {
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      ids.liveSharpe.textContent = formatNumber(data.sharpe_ratio);
+      ids.metricSharpe.textContent = formatNumber(data.sharpe_ratio);
+      ids.metricSortino.textContent = formatNumber(data.sortino_ratio);
+      ids.metricDrawdown.textContent = formatPercent(data.max_drawdown);
+      ids.metricWinRate.textContent = formatPercent(data.win_rate);
+
+      if (data.backtest_sharpe !== undefined && data.backtest_sharpe !== null) {
+        ids.backtestSharpe.textContent = formatNumber(data.backtest_sharpe);
+        const live = Number(data.sharpe_ratio);
+        const backtest = Number(data.backtest_sharpe);
+        const diff = live - backtest;
+        ids.comparisonNote.textContent = `Live Sharpe is ${formatNumber(Math.abs(diff))} ${diff >= 0 ? "above" : "below"} backtest.`;
+      } else {
+        ids.backtestSharpe.textContent = "--";
+        ids.comparisonNote.textContent = "Backtest Sharpe is not returned by /metrics yet, so live Sharpe is shown on its own.";
+      }
+
+      ids.status.textContent = `${data.trading_days_analyzed || 0} trading days analyzed over the last ${data.period_days_requested || days} days.`;
+    }
+
+    function renderExecutionDrift(data) {
+      if (data.error) {
+        ids.driftStatus.textContent = data.error;
+        return;
+      }
+
+      ids.driftLatency.textContent = data.avg_latency_seconds === null ? "--" : `${formatNumber(data.avg_latency_seconds)}s`;
+      ids.driftSlippage.textContent = formatNumber(data.avg_slippage, 4);
+      ids.driftRejection.textContent = formatPercent(data.rejection_rate);
+      ids.driftStatus.textContent = `Execution data covers the last ${data.period_days_requested || days} days.`;
+    }
+
+    async function loadDashboard() {
+      clearError();
+      ids.status.textContent = "Loading dashboard data...";
+      ids.driftStatus.textContent = "Loading execution drift...";
+      ids.refresh.disabled = true;
+      ids.refresh.textContent = "Refreshing...";
+
+      try {
+        const [metrics, drift] = await Promise.all([
+          fetchWithToken(`/metrics?days=${days}`),
+          fetchWithToken(`/execution-drift?days=${days}`),
+        ]);
+
+        if (!metrics || !drift) return;
+
+        renderMetrics(metrics);
+        renderExecutionDrift(drift);
+      } catch (err) {
+        showError(err.message || "Could not load the dashboard.");
+        ids.status.textContent = "Dashboard data could not be loaded.";
+        ids.driftStatus.textContent = "Execution drift could not be loaded.";
+      } finally {
+        ids.refresh.disabled = false;
+        ids.refresh.textContent = "Refresh";
+      }
+    }
+
+    if (!token) {
+      redirectToLogin();
+    } else {
+      ids.refresh.addEventListener("click", loadDashboard);
+      ids.logout.addEventListener("click", redirectToLogin);
+      loadDashboard();
+    }
+  </script>
+</body>
+</html>
