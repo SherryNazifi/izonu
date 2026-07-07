@@ -6,22 +6,18 @@
   <title>Dashboard · Izonu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --teal: #00F5D4;
       --magenta: #FF1F8F;
-      --blue: #3B82F6;
-      --amber: #F59E0B;
-      --violet: #8B5CF6;
-      --green: #22C55E;
       --bg: #000;
       --panel: #121212;
       --panel-soft: #171717;
       --line: #242424;
       --muted: #7c7c7c;
       --text: #e8e8e8;
-      --ui-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      --ui-font: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -36,21 +32,6 @@
     }
 
     ::selection { background: hsla(333, 100%, 59%, 0.267); color: #fff; }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -35% auto auto 50%;
-      width: 980px;
-      height: 980px;
-      transform: translateX(-50%);
-      background:
-        radial-gradient(circle at 30% 38%, rgba(0,245,212,0.14), transparent 55%),
-        radial-gradient(circle at 72% 58%, rgba(255,31,143,0.16), transparent 55%);
-      filter: blur(22px);
-      pointer-events: none;
-      z-index: 0;
-    }
 
     .shell {
       width: min(1180px, calc(100% - 40px));
@@ -136,13 +117,7 @@
     }
 
     .intro::after {
-      content: "";
-      position: absolute;
-      inset: auto -120px -170px auto;
-      width: 360px;
-      height: 360px;
-      background: radial-gradient(circle, rgba(0,245,212,0.18), transparent 62%);
-      pointer-events: none;
+      content: none;
     }
 
     .eyebrow {
@@ -181,9 +156,6 @@
       flex-direction: column;
       justify-content: space-between;
       gap: 24px;
-      background:
-        linear-gradient(135deg, rgba(255,31,143,0.14), transparent 42%),
-        rgba(18,18,18,0.84);
     }
 
     .comparison h2,
@@ -201,9 +173,7 @@
     }
 
     .sharpe-box {
-      background:
-        linear-gradient(135deg, rgba(0,245,212,0.12), rgba(255,31,143,0.08)),
-        var(--panel-soft);
+      background: var(--panel-soft);
       border: 1px solid rgba(255,255,255,0.12);
       border-radius: 10px;
       padding: 18px;
@@ -300,8 +270,8 @@
       position: absolute;
       inset: 0;
       background:
-        linear-gradient(135deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 48%);
-      opacity: 0.9;
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 13%, transparent), transparent 44%);
+      opacity: 0.78;
       pointer-events: none;
     }
 
@@ -310,9 +280,9 @@
       content: "";
       position: absolute;
       inset: 0 auto 0 0;
-      width: 3px;
+      width: 2px;
       background: var(--accent);
-      box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 70%, transparent);
+      box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 56%, transparent);
     }
 
     .metric-card > *,
@@ -321,13 +291,8 @@
       z-index: 1;
     }
 
-    .accent-sharpe { --accent: var(--teal); }
-    .accent-sortino { --accent: var(--blue); }
-    .accent-drawdown { --accent: var(--amber); }
-    .accent-win { --accent: var(--violet); }
-    .accent-latency { --accent: var(--magenta); }
-    .accent-slippage { --accent: var(--teal); }
-    .accent-rejection { --accent: var(--green); }
+    .accent-cyan { --accent: var(--teal); }
+    .accent-magenta { --accent: var(--magenta); }
 
     .metric-card:hover {
       background: rgba(255,255,255,0.035);
@@ -482,7 +447,7 @@
     </section>
 
     <section class="metrics-grid" aria-label="Performance metrics">
-      <article class="metric-card accent-sharpe">
+      <article class="metric-card accent-cyan">
         <div>
           <span class="label">Sharpe ratio</span>
           <div class="metric-value" id="metric-sharpe">--</div>
@@ -490,7 +455,7 @@
         <p class="metric-caption">Risk-adjusted return over the selected period.</p>
       </article>
 
-      <article class="metric-card accent-sortino">
+      <article class="metric-card accent-magenta">
         <div>
           <span class="label">Sortino ratio</span>
           <div class="metric-value" id="metric-sortino">--</div>
@@ -498,7 +463,7 @@
         <p class="metric-caption">Return adjusted for downside volatility.</p>
       </article>
 
-      <article class="metric-card accent-drawdown">
+      <article class="metric-card accent-cyan">
         <div>
           <span class="label">Max drawdown</span>
           <div class="metric-value" id="metric-drawdown">--</div>
@@ -506,7 +471,7 @@
         <p class="metric-caption">Largest peak-to-trough decline.</p>
       </article>
 
-      <article class="metric-card accent-win">
+      <article class="metric-card accent-magenta">
         <div>
           <span class="label">Win rate</span>
           <div class="metric-value" id="metric-win-rate">--</div>
@@ -522,19 +487,19 @@
       </div>
 
       <div class="drift-grid">
-        <article class="drift-item accent-latency">
+        <article class="drift-item accent-magenta">
           <span class="label">Latency</span>
           <div class="metric-value" id="drift-latency">--</div>
           <p class="metric-caption">Average fill latency in seconds.</p>
         </article>
 
-        <article class="drift-item accent-slippage">
+        <article class="drift-item accent-cyan">
           <span class="label">Slippage</span>
           <div class="metric-value" id="drift-slippage">--</div>
           <p class="metric-caption">Average limit-order slippage.</p>
         </article>
 
-        <article class="drift-item accent-rejection">
+        <article class="drift-item accent-magenta">
           <span class="label">Rejection rate</span>
           <div class="metric-value" id="drift-rejection">--</div>
           <p class="metric-caption">Orders not filled or partially filled.</p>
