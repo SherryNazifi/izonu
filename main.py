@@ -15,6 +15,7 @@ import hashlib
 import hmac
 import secrets
 import statistics
+import requests
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -48,16 +49,8 @@ def _scheduled_monitor():
     try:
         users = db.query(models.User).all()
         for user in users:
-            # Create a per-user Alpaca client using their own credentials
-            user_api = tradeapi.REST(
-                key_id=user.alpaca_api_key,
-                secret_key=user.alpaca_secret_key,
-                base_url=user.alpaca_base_url,
-                api_version="v2",
-            )
-
             try:
-                live_sharpe, *_ = _compute_live_metrics(user.alert_days, api_client=user_api)
+                live_sharpe, *_ = _compute_user_live_metrics(user.alert_days, user)
             except ValueError:
                 # Not enough data or no variance for this user — skip and move to next
                 continue
@@ -188,6 +181,30 @@ def _user_api_client(user: "models.User"):
         base_url=user.alpaca_base_url,
         api_version="v2",
     )
+
+
+def _alpaca_base_url(base_url: str) -> str:
+    """Normalize Alpaca base URLs so raw dashboard calls always hit v2 paths."""
+    base = (base_url or "https://paper-api.alpaca.markets").rstrip("/")
+    for suffix in ("/v1", "/v2"):
+        if base.endswith(suffix):
+            return base[: -len(suffix)]
+    return base
+
+
+def _alpaca_get(user: "models.User", path: str, params: Dict = None):
+    url = f"{_alpaca_base_url(user.alpaca_base_url)}{path}"
+    response = requests.get(
+        url,
+        headers={
+            "APCA-API-KEY-ID": user.alpaca_api_key,
+            "APCA-API-SECRET-KEY": user.alpaca_secret_key,
+        },
+        params=params or {},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
 
 
 @app.delete("/admin/users")
@@ -396,6 +413,103 @@ def _compute_live_metrics(days: int, api_client=None):
     return sharpe, sortino, max_drawdown, win_rate, len(returns)
 
 
+def _compute_user_live_metrics(days: int, user: "models.User"):
+    """
+    Calculate dashboard metrics with Alpaca's raw v2 HTTP endpoints.
+    This avoids alpaca-trade-api version differences on deployed hosts.
+    """
+    history = _alpaca_get(
+        user,
+        "/v2/account/portfolio/history",
+        params={"period": f"{days}D", "timeframe": "1D"},
+    )
+    returns = [r for r in history.get("profit_loss_pct", []) if r is not None]
+
+    if len(returns) < 2:
+        raise ValueError(f"not_enough_data|{len(returns)}")
+
+    mean_r = statistics.mean(returns)
+    std_r = statistics.stdev(returns)
+
+    if std_r == 0:
+        raise ValueError("no_variance")
+
+    sharpe = round((mean_r / std_r) * math.sqrt(252), 4)
+
+    downside = [r for r in returns if r < 0]
+    if len(downside) >= 2:
+        downside_std = statistics.stdev(downside)
+        sortino = round((mean_r / downside_std) * math.sqrt(252), 4) if downside_std > 0 else None
+    else:
+        sortino = None
+
+    equity = [float(e) for e in history.get("equity", []) if e is not None]
+    if not equity:
+        raise ValueError("not_enough_data|0")
+
+    peak = equity[0]
+    max_dd = 0.0
+    for val in equity:
+        if val > peak:
+            peak = val
+        dd = (peak - val) / peak
+        if dd > max_dd:
+            max_dd = dd
+    max_drawdown = round(max_dd, 4)
+
+    orders = _alpaca_get(user, "/v2/orders", params={"status": "closed", "limit": 500})
+    filled = [o for o in orders if o.get("status") == "filled" and o.get("filled_avg_price") is not None]
+
+    by_symbol = defaultdict(list)
+    for o in filled:
+        by_symbol[o.get("symbol")].append(o)
+
+    wins = 0
+    total_matched = 0
+    for symbol_orders in by_symbol.values():
+        symbol_orders.sort(key=lambda o: o.get("filled_at") or "")
+        buy_queue = []
+        sell_queue = []
+        for o in symbol_orders:
+            price = float(o["filled_avg_price"])
+            qty = float(o.get("filled_qty") or o.get("qty") or 0)
+            if qty <= 0:
+                continue
+
+            if o.get("side") == "buy":
+                remaining = qty
+                while remaining > 0 and sell_queue:
+                    short_price, short_qty = sell_queue[0]
+                    matched = min(remaining, short_qty)
+                    total_matched += 1
+                    if price < short_price:
+                        wins += 1
+                    remaining -= matched
+                    sell_queue[0][1] -= matched
+                    if sell_queue[0][1] <= 0:
+                        sell_queue.pop(0)
+                if remaining > 0:
+                    buy_queue.append([price, remaining])
+            elif o.get("side") == "sell":
+                remaining = qty
+                while remaining > 0 and buy_queue:
+                    buy_price, buy_qty = buy_queue[0]
+                    matched = min(remaining, buy_qty)
+                    total_matched += 1
+                    if price > buy_price:
+                        wins += 1
+                    remaining -= matched
+                    buy_queue[0][1] -= matched
+                    if buy_queue[0][1] <= 0:
+                        buy_queue.pop(0)
+                if remaining > 0:
+                    sell_queue.append([price, remaining])
+
+    win_rate = round(wins / total_matched, 4) if total_matched > 0 else None
+
+    return sharpe, sortino, max_drawdown, win_rate, len(returns)
+
+
 @app.get("/sharpe")
 def get_sharpe(days: int = 30):
     """Calculate annualised Sharpe ratio from daily portfolio returns over the last N days."""
@@ -430,9 +544,8 @@ def get_metrics(days: int = 30, current_user: "models.User" = Depends(get_curren
     The user is identified from the verified JWT, and metrics are computed against
     that user's own Alpaca account.
     """
-    user_api = _user_api_client(current_user)
     try:
-        sharpe, sortino, max_drawdown, win_rate, trading_days = _compute_live_metrics(days, api_client=user_api)
+        sharpe, sortino, max_drawdown, win_rate, trading_days = _compute_user_live_metrics(days, current_user)
     except ValueError as e:
         msg = str(e)
         if msg.startswith("not_enough_data"):
@@ -505,6 +618,43 @@ def _execution_drift(days: int, api_client=None):
     return avg_latency, avg_slippage, rejection_rate
 
 
+def _user_execution_drift(days: int, user: "models.User"):
+    after = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    orders = _alpaca_get(user, "/v2/orders", params={"status": "all", "limit": 500, "after": after})
+
+    if not orders:
+        raise ValueError("no_orders")
+
+    latency_samples = []
+    for o in orders:
+        if o.get("status") == "filled" and o.get("filled_at") and o.get("submitted_at"):
+            filled_at = datetime.fromisoformat(o["filled_at"].replace("Z", "+00:00"))
+            submitted_at = datetime.fromisoformat(o["submitted_at"].replace("Z", "+00:00"))
+            latency_samples.append((filled_at - submitted_at).total_seconds())
+    avg_latency = round(statistics.mean(latency_samples), 4) if latency_samples else None
+
+    slippage_samples = []
+    for o in orders:
+        if (
+            o.get("type") == "limit"
+            and o.get("status") == "filled"
+            and o.get("limit_price")
+            and o.get("filled_avg_price")
+        ):
+            fill = float(o["filled_avg_price"])
+            limit = float(o["limit_price"])
+            if o.get("side") == "buy":
+                slippage_samples.append(fill - limit)
+            elif o.get("side") == "sell":
+                slippage_samples.append(limit - fill)
+    avg_slippage = round(statistics.mean(slippage_samples), 4) if slippage_samples else None
+
+    not_filled = [o for o in orders if o.get("status") not in ("filled", "partially_filled")]
+    rejection_rate = round(len(not_filled) / len(orders), 4)
+
+    return avg_latency, avg_slippage, rejection_rate
+
+
 @app.get("/execution-drift")
 def get_execution_drift(days: int = 30, current_user: "models.User" = Depends(get_current_user)):
     """
@@ -512,9 +662,8 @@ def get_execution_drift(days: int = 30, current_user: "models.User" = Depends(ge
     The user is identified from the verified JWT, and drift is computed against
     that user's own Alpaca account.
     """
-    user_api = _user_api_client(current_user)
     try:
-        avg_latency, avg_slippage, rejection_rate = _execution_drift(days, api_client=user_api)
+        avg_latency, avg_slippage, rejection_rate = _user_execution_drift(days, current_user)
     except ValueError:
         return {
             "error": "No orders found in the requested period.",
