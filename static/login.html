@@ -266,6 +266,7 @@
           msg.textContent = "Signed in successfully.";
           msg.style.display = "block";
           btn.textContent = "Signed in";
+          window.location.href = "/static/dashboard.html";
         } else {
           msg.className = "message error";
           msg.textContent = data.detail || "Invalid email or password.";

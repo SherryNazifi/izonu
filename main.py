@@ -218,12 +218,15 @@ def register_user(user: UserRegister, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    token = create_access_token(new_user.id)
 
     return {
         "message": "User registered successfully.",
         "id": new_user.id,
         "email": new_user.email,
         "created_at": new_user.created_at,
+        "access_token": token,
+        "token_type": "bearer",
     }
 
 

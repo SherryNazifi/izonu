@@ -334,10 +334,14 @@
         const data = await response.json();
 
         if (response.ok) {
+          if (data.access_token) {
+            localStorage.setItem("izonu_token", data.access_token);
+          }
           msg.className = "message success";
           msg.textContent = "Account created. You will receive email alerts when strategy drift is detected.";
           msg.style.display = "block";
           btn.textContent = "Account Created";
+          window.location.href = "/static/dashboard.html";
         } else {
           msg.className = "message error";
           msg.textContent = data.detail || "Something went wrong. Please try again.";
