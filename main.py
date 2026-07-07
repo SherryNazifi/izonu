@@ -34,6 +34,7 @@ api = tradeapi.REST(
     key_id=os.getenv("ALPACA_API_KEY"),
     secret_key=os.getenv("ALPACA_SECRET_KEY"),
     base_url=os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets"),
+    api_version="v2",
 )
 
 
@@ -52,6 +53,7 @@ def _scheduled_monitor():
                 key_id=user.alpaca_api_key,
                 secret_key=user.alpaca_secret_key,
                 base_url=user.alpaca_base_url,
+                api_version="v2",
             )
 
             try:
@@ -184,6 +186,7 @@ def _user_api_client(user: "models.User"):
         key_id=user.alpaca_api_key,
         secret_key=user.alpaca_secret_key,
         base_url=user.alpaca_base_url,
+        api_version="v2",
     )
 
 
