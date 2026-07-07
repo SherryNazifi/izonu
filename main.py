@@ -444,6 +444,8 @@ def get_metrics(days: int = 30, current_user: "models.User" = Depends(get_curren
             "error": "No variance in daily returns — cannot calculate metrics.",
             "reason": "This usually means no trades were executed in this period.",
         }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch Alpaca metrics: {str(e)}")
 
     return {
         "sharpe_ratio": sharpe,
@@ -516,6 +518,8 @@ def get_execution_drift(days: int = 30, current_user: "models.User" = Depends(ge
             "days_requested": days,
             "suggestion": f"Try increasing the days parameter beyond {days}.",
         }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Could not fetch Alpaca execution data: {str(e)}")
 
     return {
         "avg_latency_seconds": avg_latency,

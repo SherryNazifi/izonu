@@ -499,7 +499,11 @@
         return null;
       }
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await response.json()
+        : { detail: await response.text() };
+
       if (!response.ok) {
         throw new Error(data.detail || data.error || "Dashboard request failed.");
       }
@@ -550,24 +554,33 @@
       ids.refresh.disabled = true;
       ids.refresh.textContent = "Refreshing...";
 
-      try {
-        const [metrics, drift] = await Promise.all([
-          fetchWithToken(`/metrics?days=${days}`),
-          fetchWithToken(`/execution-drift?days=${days}`),
-        ]);
+      const [metricsResult, driftResult] = await Promise.allSettled([
+        fetchWithToken(`/metrics?days=${days}`),
+        fetchWithToken(`/execution-drift?days=${days}`),
+      ]);
 
-        if (!metrics || !drift) return;
-
-        renderMetrics(metrics);
-        renderExecutionDrift(drift);
-      } catch (err) {
-        showError(err.message || "Could not load the dashboard.");
+      if (metricsResult.status === "fulfilled" && metricsResult.value) {
+        try {
+          renderMetrics(metricsResult.value);
+        } catch (err) {
+          showError(err.message || "Could not load performance metrics.");
+          ids.status.textContent = "Dashboard data could not be loaded.";
+        }
+      } else if (metricsResult.status === "rejected") {
+        showError(metricsResult.reason.message || "Could not load performance metrics.");
         ids.status.textContent = "Dashboard data could not be loaded.";
-        ids.driftStatus.textContent = "Execution drift could not be loaded.";
-      } finally {
-        ids.refresh.disabled = false;
-        ids.refresh.textContent = "Refresh";
       }
+
+      if (driftResult.status === "fulfilled" && driftResult.value) {
+        renderExecutionDrift(driftResult.value);
+      } else if (driftResult.status === "rejected") {
+        const existing = ids.error.textContent ? `${ids.error.textContent} ` : "";
+        showError(`${existing}${driftResult.reason.message || "Could not load execution drift."}`);
+        ids.driftStatus.textContent = "Execution drift could not be loaded.";
+      }
+
+      ids.refresh.disabled = false;
+      ids.refresh.textContent = "Refresh";
     }
 
     if (!token) {
