@@ -6,7 +6,7 @@
   <title>Izonu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     html, body { margin: 0; background: #000; }
     ::selection { background: hsla(333, 100%, 59%, 0.267); color: #fff; }
@@ -142,7 +142,7 @@
       position: absolute;
       inset: -1px;
       border: 1px solid transparent;
-      background: linear-gradient(135deg, #00C2B8, #FF2D8A) border-box;
+      background: linear-gradient(135deg, #00F5D4, #FF1F8F) border-box;
       -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
       -webkit-mask-composite: xor;
       mask-composite: exclude;
@@ -166,7 +166,7 @@
       border-radius: 8px;
       display: grid;
       place-items: center;
-      color: #00C2B8;
+      color: #00F5D4;
       background: rgba(255,255,255,0.08);
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
       font-size: 20px;
@@ -260,7 +260,7 @@
 </head>
 <body>
 
-<div style="min-height: 100vh; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; position: relative; overflow: hidden; display: flex; flex-direction: column; background-color: #000000; padding-top: 86px; box-sizing: border-box;">
+<div style="min-height: 100vh; color: #fff; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif; position: relative; overflow: hidden; display: flex; flex-direction: column; background-color: #000000; padding-top: 86px; box-sizing: border-box;">
 
   <nav style="display: flex; align-items: center; justify-content: space-between; padding: 28px 44px; position: fixed; top: 0; left: 0; right: 0; z-index: 100; box-sizing: border-box; background: rgba(0,0,0,0.78); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255,255,255,0.06);">
     <div style="font-weight: 700; font-size: 20px; letter-spacing: -0.03em; color: #fff;">Izonu</div>
@@ -273,7 +273,7 @@
     <div style="padding: 0 44px 80px 44px;">
 
       <div style="display: inline-flex; align-items: center; gap: 8px; margin-bottom: 38px; padding: 5px 13px; border: 1px solid rgba(255,255,255,0.09); border-radius: 100px; font-size: 11px; letter-spacing: 0.06em; color: rgba(255,255,255,0.5); font-weight: 500;">
-        <span style="width: 5px; height: 5px; border-radius: 50%; background: #00C2B8; box-shadow: 0 0 6px #00C2B8, 0 0 12px rgba(0,194,184,0.5);"></span>
+        <span style="width: 5px; height: 5px; border-radius: 50%; background: #00F5D4; box-shadow: 0 0 6px #00F5D4, 0 0 12px rgba(0,245,212,0.5);"></span>
         LIVE STRATEGY MONITORING
       </div>
 
@@ -300,7 +300,7 @@
         <defs>
           <filter id="tealGlow" x="-30%" y="-60%" width="160%" height="220%">
             <feGaussianBlur stdDeviation="4" result="blur"></feGaussianBlur>
-            <feFlood flood-color="#00C2B8" flood-opacity="0.45"></feFlood>
+            <feFlood flood-color="#00F5D4" flood-opacity="0.45"></feFlood>
             <feComposite in2="blur" operator="in"></feComposite>
             <feMerge>
               <feMergeNode></feMergeNode>
@@ -309,7 +309,7 @@
           </filter>
           <filter id="magentaGlow" x="-30%" y="-60%" width="160%" height="220%">
             <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
-            <feFlood flood-color="#FF2D8A" flood-opacity="0.5"></feFlood>
+            <feFlood flood-color="#FF1F8F" flood-opacity="0.5"></feFlood>
             <feComposite in2="blur" operator="in"></feComposite>
             <feMerge>
               <feMergeNode></feMergeNode>
@@ -322,14 +322,14 @@
           class="chart-line backtest"
           pathLength="1"
           d="M 28 214 C 62 209, 94 218, 128 213 S 190 218, 222 212 S 284 209, 318 214 S 374 224, 414 218 S 494 211, 544 216"
-          stroke="#00C2B8"
+          stroke="#00F5D4"
           stroke-width="3.5"
           filter="url(#tealGlow)"></path>
         <path
           class="chart-line live"
           pathLength="1"
           d="M 28 214 C 62 216, 96 211, 128 216 S 188 221, 222 214 S 280 217, 318 240 C 348 254, 376 273, 402 306 C 424 332, 438 366, 466 385 C 494 405, 520 398, 544 414"
-          stroke="#FF2D8A"
+          stroke="#FF1F8F"
           stroke-width="4"
           filter="url(#magentaGlow)"></path>
         <g class="chart-callout">

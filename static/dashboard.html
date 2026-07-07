@@ -6,17 +6,22 @@
   <title>Dashboard · Izonu</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --teal: #00C2B8;
-      --magenta: #FF2D8A;
+      --teal: #00F5D4;
+      --magenta: #FF1F8F;
+      --blue: #3B82F6;
+      --amber: #F59E0B;
+      --violet: #8B5CF6;
+      --green: #22C55E;
       --bg: #000;
       --panel: #121212;
       --panel-soft: #171717;
       --line: #242424;
       --muted: #7c7c7c;
       --text: #e8e8e8;
+      --ui-font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,7 +30,7 @@
       min-height: 100vh;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+      font-family: var(--ui-font);
       position: relative;
       overflow-x: hidden;
     }
@@ -40,8 +45,8 @@
       height: 980px;
       transform: translateX(-50%);
       background:
-        radial-gradient(circle at 30% 38%, rgba(0,194,184,0.15), transparent 55%),
-        radial-gradient(circle at 72% 58%, rgba(255,45,138,0.15), transparent 55%);
+        radial-gradient(circle at 30% 38%, rgba(0,245,212,0.14), transparent 55%),
+        radial-gradient(circle at 72% 58%, rgba(255,31,143,0.16), transparent 55%);
       filter: blur(22px);
       pointer-events: none;
       z-index: 0;
@@ -74,20 +79,22 @@
     .top-actions {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .pill,
     button {
-      min-height: 38px;
-      border-radius: 7px;
+      min-height: 34px;
+      border-radius: 8px;
       border: 1px solid rgba(255,255,255,0.16);
       background: rgba(18,18,18,0.72);
       color: rgba(255,255,255,0.72);
-      padding: 0 14px;
+      padding: 0 13px;
+      font-family: var(--ui-font);
       font-size: 13px;
-      font-weight: 650;
-      letter-spacing: -0.01em;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: 0;
     }
 
     button {
@@ -113,7 +120,7 @@
     .comparison,
     .metric-card,
     .drift-panel {
-      background: rgba(18,18,18,0.82);
+      background: rgba(18,18,18,0.84);
       border: 1px solid var(--line);
       border-radius: 14px;
     }
@@ -134,7 +141,7 @@
       inset: auto -120px -170px auto;
       width: 360px;
       height: 360px;
-      background: radial-gradient(circle, rgba(0,194,184,0.15), transparent 62%);
+      background: radial-gradient(circle, rgba(0,245,212,0.18), transparent 62%);
       pointer-events: none;
     }
 
@@ -174,6 +181,9 @@
       flex-direction: column;
       justify-content: space-between;
       gap: 24px;
+      background:
+        linear-gradient(135deg, rgba(255,31,143,0.14), transparent 42%),
+        rgba(18,18,18,0.84);
     }
 
     .comparison h2,
@@ -191,8 +201,10 @@
     }
 
     .sharpe-box {
-      background: var(--panel-soft);
-      border: 1px solid rgba(255,255,255,0.08);
+      background:
+        linear-gradient(135deg, rgba(0,245,212,0.12), rgba(255,31,143,0.08)),
+        var(--panel-soft);
+      border: 1px solid rgba(255,255,255,0.12);
       border-radius: 10px;
       padding: 18px;
     }
@@ -232,11 +244,11 @@
     }
 
     .chart-fill.live {
-      background: linear-gradient(90deg, var(--teal), rgba(0,194,184,0.45));
+      background: linear-gradient(90deg, var(--teal), rgba(0,245,212,0.45));
     }
 
     .chart-fill.backtest {
-      background: linear-gradient(90deg, var(--magenta), rgba(255,45,138,0.45));
+      background: linear-gradient(90deg, var(--magenta), rgba(255,31,143,0.45));
     }
 
     .label {
@@ -277,8 +289,45 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
+      position: relative;
+      overflow: hidden;
       transition: border-color .15s ease, background-color .15s ease;
     }
+
+    .metric-card::before,
+    .drift-item::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 48%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .metric-card::after,
+    .drift-item::after {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--accent);
+      box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 70%, transparent);
+    }
+
+    .metric-card > *,
+    .drift-item > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .accent-sharpe { --accent: var(--teal); }
+    .accent-sortino { --accent: var(--blue); }
+    .accent-drawdown { --accent: var(--amber); }
+    .accent-win { --accent: var(--violet); }
+    .accent-latency { --accent: var(--magenta); }
+    .accent-slippage { --accent: var(--teal); }
+    .accent-rejection { --accent: var(--green); }
 
     .metric-card:hover {
       background: rgba(255,255,255,0.035);
@@ -326,6 +375,8 @@
       padding: 22px;
       background: rgba(255,255,255,0.018);
       border-right: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+      overflow: hidden;
     }
 
     .drift-item:last-child { border-right: 0; }
@@ -431,7 +482,7 @@
     </section>
 
     <section class="metrics-grid" aria-label="Performance metrics">
-      <article class="metric-card">
+      <article class="metric-card accent-sharpe">
         <div>
           <span class="label">Sharpe ratio</span>
           <div class="metric-value" id="metric-sharpe">--</div>
@@ -439,7 +490,7 @@
         <p class="metric-caption">Risk-adjusted return over the selected period.</p>
       </article>
 
-      <article class="metric-card">
+      <article class="metric-card accent-sortino">
         <div>
           <span class="label">Sortino ratio</span>
           <div class="metric-value" id="metric-sortino">--</div>
@@ -447,7 +498,7 @@
         <p class="metric-caption">Return adjusted for downside volatility.</p>
       </article>
 
-      <article class="metric-card">
+      <article class="metric-card accent-drawdown">
         <div>
           <span class="label">Max drawdown</span>
           <div class="metric-value" id="metric-drawdown">--</div>
@@ -455,7 +506,7 @@
         <p class="metric-caption">Largest peak-to-trough decline.</p>
       </article>
 
-      <article class="metric-card">
+      <article class="metric-card accent-win">
         <div>
           <span class="label">Win rate</span>
           <div class="metric-value" id="metric-win-rate">--</div>
@@ -471,19 +522,19 @@
       </div>
 
       <div class="drift-grid">
-        <article class="drift-item">
+        <article class="drift-item accent-latency">
           <span class="label">Latency</span>
           <div class="metric-value" id="drift-latency">--</div>
           <p class="metric-caption">Average fill latency in seconds.</p>
         </article>
 
-        <article class="drift-item">
+        <article class="drift-item accent-slippage">
           <span class="label">Slippage</span>
           <div class="metric-value" id="drift-slippage">--</div>
           <p class="metric-caption">Average limit-order slippage.</p>
         </article>
 
-        <article class="drift-item">
+        <article class="drift-item accent-rejection">
           <span class="label">Rejection rate</span>
           <div class="metric-value" id="drift-rejection">--</div>
           <p class="metric-caption">Orders not filled or partially filled.</p>
