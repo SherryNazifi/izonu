@@ -1,0 +1,3 @@
+# Exclude the served frontend pages from GitHub's language stats so the repo
+# is detected as Python rather than HTML.
+static/*.html linguist-documentation
