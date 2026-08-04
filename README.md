@@ -1,17 +1,20 @@
 # Izonu
 
-A live algorithmic trading strategy monitor built with FastAPI and Alpaca. Izonu tracks your portfolio, calculates the Sharpe ratio, and automatically alerts you by email when your live strategy drifts too far from your backtest performance.
+A live algorithmic trading strategy monitor built with FastAPI and Alpaca. Izonu tracks your portfolio, calculates the Sharpe ratio and related risk metrics, and automatically alerts you by email when your live strategy drifts too far from your backtest performance.
 
 ---
 
 ## What It Does
 
 - Connects to your Alpaca paper or live trading account
+- Serves a small web frontend: landing page, signup, login, and an authenticated dashboard
 - Exposes REST endpoints to view your account, positions, and orders
-- Calculates your annualised Sharpe ratio from daily portfolio returns
+- Calculates your annualised Sharpe ratio, Sortino ratio, max drawdown, and win rate from daily portfolio returns
+- Reports execution drift: average order latency, average slippage, and rejection rate
 - Compares your live Sharpe to your backtest Sharpe and triggers an email alert if drift is detected
-- Runs the drift check automatically every day at 9 AM via a background scheduler
+- Runs the drift check automatically every day at 9 AM (America/New_York) via a background scheduler
 - Supports multiple users, each with their own Alpaca credentials and alert settings stored in PostgreSQL
+- Authenticates users with JWT bearer tokens issued at signup and login
 
 ---
 
@@ -20,10 +23,12 @@ A live algorithmic trading strategy monitor built with FastAPI and Alpaca. Izonu
 - **FastAPI** - web framework
 - **Alpaca Trade API** - brokerage connection
 - **SQLAlchemy + PostgreSQL** - database
+- **PyJWT** - token-based authentication
 - **SendGrid** - email alerts
 - **APScheduler** - scheduled daily monitor
 - **Pydantic** - request validation
 - **python-dotenv** - environment variable management
+- **Static HTML/CSS/JS** - frontend served by FastAPI
 
 ---
 
@@ -31,10 +36,17 @@ A live algorithmic trading strategy monitor built with FastAPI and Alpaca. Izonu
 
 ```
 izonu/
-  main.py          # all endpoints and scheduled monitor
+  main.py          # all endpoints, auth, metrics, and scheduled monitor
   database.py      # database connection, session, and Base
   models.py        # SQLAlchemy User table definition
+  static/
+    landing.html   # marketing / entry page, served at /
+    signup.html    # account registration
+    login.html     # sign in
+    dashboard.html # authenticated metrics dashboard
   requirements.txt # dependencies
+  runtime.txt      # Python version for deployment
+  mise.toml        # local toolchain config
   .env             # secrets and config (never commit this)
   README.md
 ```
@@ -62,11 +74,14 @@ ALERT_EMAIL=your_receiving_email
 
 DATABASE_URL=postgresql://postgres:password@localhost:5432/izonu
 
-BACKTEST_SHARPE=1.84
-ALERT_DAYS=30
-ALERT_THRESHOLD=0.3
-TIMEZONE=America/New_York
+JWT_SECRET=a_long_random_secret_string
 ```
+
+The Alpaca keys above are used by the unauthenticated legacy endpoints (`/account`, `/positions`, `/orders`, `/sharpe`, `/monitor`). Per-user endpoints use the credentials each user supplies at registration, which are stored in the database.
+
+`JWT_SECRET` is required for signup, login, and any authenticated endpoint. Requests fail if it is not set.
+
+Backtest Sharpe, alert window, and alert threshold are **per user** and stored in the database — they are not environment variables.
 
 **3. Run the app**
 
@@ -80,54 +95,52 @@ On startup it will automatically create the `users` table in PostgreSQL if it do
 
 ---
 
+## Authentication
+
+`POST /users/register` and `POST /users/login` both return a JWT:
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+Tokens are signed with HS256 and expire after 7 days. Send them on protected endpoints:
+
+```
+Authorization: Bearer <access_token>
+```
+
+Passwords are stored as salted hashes; login returns the same generic error for an unknown email and a wrong password so registered emails are not leaked.
+
+---
+
 ## Endpoints
 
-### General
+### Pages
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/` | Health check |
+| GET | `/` | Serves the landing page (`static/landing.html`) |
+| GET | `/static/signup.html` | Signup page |
+| GET | `/static/login.html` | Login page |
+| GET | `/static/dashboard.html` | Authenticated dashboard |
 | GET | `/docs` | Auto-generated interactive API docs |
-
-### Account
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/account` | Returns account status, equity, cash, buying power, portfolio value |
-| GET | `/account/raw` | Returns every field Alpaca provides on the account object |
-
-### Positions and Orders
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/positions` | Lists all open positions with P&L data |
-| GET | `/orders` | Lists orders, filtered by `?status=open` (default), `closed`, or `all` |
-
-### Sharpe Ratio
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/sharpe` | Calculates annualised Sharpe ratio for the last 30 days (change with `?days=N`) |
-| GET | `/sharpe/test` | Runs the Sharpe calculation on hardcoded fake returns to verify the math |
-
-### Monitor
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/monitor` | Compares live Sharpe to backtest Sharpe and sends an email if drift is detected. Requires `?backtest_sharpe=X`. Optional: `?days=30&threshold=0.3` |
-| GET | `/monitor/test` | Triggers a fake alert with hardcoded values to test the email integration |
 
 ### Users
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/users/register` | Registers a new user with their Alpaca credentials and alert settings |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/users/register` | — | Registers a new user and returns an access token |
+| POST | `/users/login` | — | Authenticates by email and password, returns an access token |
 
 **Register request body:**
 
 ```json
 {
   "email": "you@example.com",
+  "password": "your_password",
   "alpaca_api_key": "your_key",
   "alpaca_secret_key": "your_secret",
   "alpaca_base_url": "https://paper-api.alpaca.markets",
@@ -139,11 +152,42 @@ On startup it will automatically create the `users` table in PostgreSQL if it do
 
 `alpaca_base_url`, `alert_days`, and `alert_threshold` are optional and will use the defaults shown above if not provided.
 
+**Login request body:**
+
+```json
+{
+  "email": "you@example.com",
+  "password": "your_password"
+}
+```
+
+### Authenticated metrics
+
+These identify the user from the JWT and query that user's own Alpaca account.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/metrics` | Sharpe ratio, Sortino ratio, max drawdown, and win rate for the last 30 days (change with `?days=N`) |
+| GET | `/execution-drift` | Average order latency (seconds), average slippage, and rejection rate over the last 30 days (change with `?days=N`) |
+
+If there is not enough trading history, both return a JSON body with an `error` field and a suggested larger `days` value rather than failing.
+
+### Account (uses the server's `.env` Alpaca keys)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/account` | Returns account status, equity, cash, buying power, portfolio value |
+| GET | `/account/raw` | Returns every field Alpaca provides on the account object |
+| GET | `/positions` | Lists all open positions with P&L data |
+| GET | `/orders` | Lists orders, filtered by `?status=open` (default), `closed`, or `all` |
+| GET | `/sharpe` | Annualised Sharpe ratio for the last 30 days (change with `?days=N`) |
+| GET | `/monitor` | Compares live Sharpe to backtest Sharpe and sends an email if drift is detected. Requires `?backtest_sharpe=X`. Optional: `?days=30&threshold=0.3` |
+
 ---
 
 ## How the Daily Monitor Works
 
-Every day at 9 AM in the configured timezone, the scheduler:
+Every day at 9 AM America/New_York, the scheduler:
 
 1. Fetches every user from the database
 2. Creates a separate Alpaca connection for each user using their own credentials
@@ -171,6 +215,8 @@ Multiplying by `sqrt(252)` annualises the result since there are 252 trading day
 | 1 to 2 | Good |
 | 2 to 3 | Very good |
 | Above 3 | Exceptional |
+
+The dashboard also reports the **Sortino ratio** (same idea but penalising only downside volatility), **max drawdown** (largest peak-to-trough decline), and **win rate** (share of days with a positive return).
 
 ---
 
